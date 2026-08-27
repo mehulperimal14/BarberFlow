@@ -1,0 +1,51 @@
+shop_id,shop_name,area,shop_type,number_of_seats,number_of_barbers,total_visits,total_revenue,avg_wait_minutes,avg_utilization_pct,average_rating
+1,The Gentlemen's Club,Downtown,Bottleneck,2,1,1739010,47693387.56,69.6,22.9,4.1
+2,Fade & Blade,Eastside,Premium,4,3,1714804,66723915.44,1.2,12.8,4.6
+3,Classic Cuts,Westside,Budget,8,7,1493128,26326025.18,0.0,5.2,4.0
+4,Urban Trims,Eastside,Bottleneck,2,1,1633632,44337460.44,79.5,23.4,4.7
+5,The Shave Parlor,Eastside,Bottleneck,3,3,1707069,47438761.37,1.4,18.3,4.2
+6,Barber & Co.,Downtown,Premium,8,8,1494129,54641977.39,0.0,5.9,4.9
+7,Razor Sharp,Westside,Premium,5,5,1426152,62581886.64,0.1,12.6,5.0
+8,Prestige Barber,Eastside,Standard,5,5,1461278,37258130.0,0.0,8.6,3.9
+9,Dapper & Co.,Northside,Budget,9,7,1392391,22566316.5,0.0,5.1,3.5
+10,The Hair Hub,Suburbs,Bottleneck,2,1,1582308,45741073.56,70.4,24.7,4.6
+11,Modern Man Barbers,Northside,Budget,9,8,1369914,24123511.23,0.0,5.4,3.6
+12,Chop Shop,Eastside,Bottleneck,2,1,1786330,48300304.78,76.7,24.8,4.5
+13,Elite Grooming,Suburbs,Standard,4,3,1167166,29189160.0,1.9,14.7,4.5
+14,Eco Barber Shop,Downtown,Budget,10,8,1443260,21679799.96,0.0,4.6,4.0
+15,Vintage Barber,Eastside,Bottleneck,2,1,1690507,43019416.44,57.7,24.0,4.5
+16,The Grooming Lounge,Northside,Bottleneck,3,1,1610063,39886181.79,59.5,15.4,4.3
+17,Style & Scissors,Westside,Bottleneck,2,1,1829464,52567303.88,66.9,23.3,4.3
+18,Headquarters,Northside,Premium,4,4,1364363,47350132.83,0.6,17.5,4.9
+19,Top Knot,Downtown,Premium,4,4,1380288,55786523.52,0.7,14.3,4.9
+20,The Barber Lounge,Eastside,Bottleneck,3,1,1770860,45089267.86,69.9,15.3,4.7
+21,Bold & Gold,Northside,Bottleneck,3,3,1511328,45168439.68,5.5,21.7,4.3
+22,Trim & Proper,Northside,Budget,9,7,1343160,20206084.08,0.0,4.9,3.4
+23,Executive Barber,Downtown,Bottleneck,2,1,1793792,46432891.96,58.2,21.4,4.2
+24,Main Street Barbers,Westside,Budget,8,7,1299480,22995117.6,0.0,5.9,3.6
+25,Cornerstone Cuts,Eastside,Standard,5,4,1209936,29784300.0,0.4,9.8,4.3
+26,Metro Man,Eastside,Premium,5,4,1562743,55340089.35,0.2,9.5,4.6
+27,The Daily Shave,Westside,Standard,3,2,1232868,31793580.0,7.4,15.5,4.1
+28,Slick Backs,Suburbs,Premium,5,4,1483482,63005503.47,0.2,10.9,4.7
+29,Grizzly Grooming,Downtown,Standard,3,3,1197924,30084600.0,0.8,15.7,4.0
+30,Iron & Clay,Eastside,Budget,6,5,1538992,26741782.34,0.0,6.5,3.6
+31,High-Class Trims,Northside,Premium,8,8,1403220,59890117.56,0.0,7.5,4.8
+32,The Clipper Room,Suburbs,Budget,5,3,1282281,23057844.81,2.4,11.8,3.9
+33,True & Valiant,Suburbs,Premium,8,7,1426152,54690919.92,0.0,7.4,4.7
+34,Heritage Barbers,Westside,Budget,7,6,1236144,20468109.48,0.0,6.9,3.5
+35,Fades & Shades,Northside,Premium,7,6,1312311,48970972.05,0.0,9.9,4.5
+36,Gold Medal Cuts,Northside,Budget,7,6,1416051,23535146.18,0.0,6.2,3.5
+37,The Hair Loft,Suburbs,Bottleneck,2,1,1631357,43516785.13,73.6,23.2,4.2
+38,Sharp Styles,Northside,Bottleneck,2,2,1694784,45778758.48,12.3,30.2,4.4
+39,Signature Cuts,Eastside,Premium,4,4,1385384,52072420.4,1.1,16.9,4.9
+40,Crown Grooming,Eastside,Premium,4,3,1675310,60925750.34,1.7,13.4,5.0
+41,Redwood Barbers,Downtown,Budget,8,6,1443260,25195486.68,0.0,5.1,3.4
+42,Apex Trims,Westside,Premium,6,6,1431612,55949395.32,0.0,10.3,5.0
+43,Vogue Men,Westside,Standard,3,2,1298934,32337305.0,8.0,15.9,4.3
+44,The Cutting Edge,Westside,Budget,10,8,1237236,21825974.17,0.0,5.0,3.7
+45,Summit Grooming,Westside,Bottleneck,3,1,1698788,43253804.23,63.1,15.1,4.2
+46,Atlas Barber,Northside,Premium,6,6,1326325,54808663.91,0.1,11.6,4.8
+47,Lighthouse Cuts,Downtown,Budget,9,8,1354080,25029065.88,0.0,4.7,3.4
+48,Blue Collar Barbers,Northside,Premium,7,6,1339338,56317351.09,0.0,8.7,4.6
+49,First Class Barber,Suburbs,Bottleneck,3,1,1697605,50916887.84,69.1,16.1,4.7
+50,The Hangar Shop,Downtown,Bottleneck,3,2,1550640,41952062.88,10.1,17.3,4.3

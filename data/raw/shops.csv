@@ -1,0 +1,51 @@
+shop_id,shop_name,owner_name,area,city,latitude,longitude,rating,review_count,opening_time,closing_time,number_of_seats,number_of_barbers,shop_status,shop_type
+1,The Gentlemen's Club,Owner 1,Downtown,Metropolis,40.73266856612045,-74.01153057204685,4.1,326,08:00,21:00,2,1,Active,Bottleneck
+2,Fade & Blade,Owner 2,Eastside,Metropolis,40.73870754152403,-73.94507880574368,4.6,1503,08:00,21:00,4,3,Active,Premium
+3,Classic Cuts,Owner 3,Westside,Metropolis,40.70343386501107,-74.01536547827797,4.0,159,08:00,21:00,8,7,Active,Budget
+4,Urban Trims,Owner 4,Eastside,Metropolis,40.775968512620295,-73.97530261083388,4.7,976,08:00,19:00,2,1,Active,Bottleneck
+5,The Shave Parlor,Owner 5,Eastside,Metropolis,40.6940210245626,-73.98429759825656,4.2,244,09:00,21:00,3,3,Active,Bottleneck
+6,Barber & Co.,Owner 6,Downtown,Metropolis,40.6942632922875,-74.0246291901428,4.9,1759,09:00,21:00,8,8,Active,Premium
+7,Razor Sharp,Owner 7,Westside,Metropolis,40.72247849086264,-74.08253120978631,5.0,2437,08:00,19:00,5,5,Active,Premium
+8,Prestige Barber,Owner 8,Eastside,Metropolis,40.64380328669948,-74.02849150116964,3.9,648,08:00,21:00,5,5,Active,Standard
+9,Dapper & Co.,Owner 9,Northside,Metropolis,40.672286755186626,-73.9934301066962,3.5,488,09:00,21:00,9,7,Active,Budget
+10,The Hair Hub,Owner 10,Suburbs,Metropolis,40.67647903697915,-74.06249214805341,4.6,1940,09:00,20:00,2,1,Active,Bottleneck
+11,Modern Man Barbers,Owner 11,Northside,Metropolis,40.771425950756864,-74.01503105201947,3.6,672,09:00,21:00,9,8,Active,Budget
+12,Chop Shop,Owner 12,Eastside,Metropolis,40.71550112818752,-74.06298992744854,4.5,1302,09:00,21:00,2,1,Active,Bottleneck
+13,Elite Grooming,Owner 13,Suburbs,Metropolis,40.691024691018995,-74.0015630964116,4.5,482,09:00,19:00,4,3,Active,Standard
+14,Eco Barber Shop,Owner 14,Downtown,Metropolis,40.66676025690311,-73.99097207926617,4.0,798,08:00,20:00,10,8,Active,Budget
+15,Vintage Barber,Owner 15,Eastside,Metropolis,40.68877445240325,-74.01766774999173,4.5,1298,09:00,21:00,2,1,Active,Bottleneck
+16,The Grooming Lounge,Owner 16,Northside,Metropolis,40.68873173551083,-73.93190887261964,4.3,1510,09:00,21:00,3,1,Active,Bottleneck
+17,Style & Scissors,Owner 17,Westside,Metropolis,40.71226011101049,-74.04830843715824,4.3,476,08:00,21:00,2,1,Active,Bottleneck
+18,Headquarters,Owner 18,Northside,Metropolis,40.74570179648413,-74.05483374599883,4.9,2282,09:00,19:00,4,4,Active,Premium
+19,Top Knot,Owner 19,Downtown,Metropolis,40.72115454380019,-74.08438680495519,4.9,2107,08:00,19:00,4,4,Active,Premium
+20,The Barber Lounge,Owner 20,Eastside,Metropolis,40.659672558044065,-73.99812555056523,4.7,1920,08:00,21:00,3,1,Active,Bottleneck
+21,Bold & Gold,Owner 21,Northside,Metropolis,40.74233866319982,-73.9991452687524,4.3,635,08:00,19:00,3,3,Active,Bottleneck
+22,Trim & Proper,Owner 22,Northside,Metropolis,40.70817406870447,-74.01804414782357,3.4,741,08:00,19:00,9,7,Active,Budget
+23,Executive Barber,Owner 23,Downtown,Metropolis,40.653659120385306,-74.03479376833579,4.2,1014,08:00,21:00,2,1,Active,Bottleneck
+24,Main Street Barbers,Owner 24,Westside,Metropolis,40.69437444916161,-73.96371511095124,3.6,218,09:00,20:00,8,7,Active,Budget
+25,Cornerstone Cuts,Owner 25,Eastside,Metropolis,40.72654473158274,-74.07652160621451,4.3,1369,08:00,19:00,5,4,Active,Standard
+26,Metro Man,Owner 26,Eastside,Metropolis,40.725763358775794,-74.02140329121666,4.6,1173,08:00,20:00,5,4,Active,Premium
+27,The Daily Shave,Owner 27,Westside,Metropolis,40.68572311998776,-73.98153294844637,4.1,1571,08:00,19:00,3,2,Active,Standard
+28,Slick Backs,Owner 28,Suburbs,Metropolis,40.75403998089984,-73.96874879523536,4.7,1302,08:00,20:00,5,4,Active,Premium
+29,Grizzly Grooming,Owner 29,Downtown,Metropolis,40.6792312990711,-74.01836849503405,4.0,1353,09:00,20:00,3,3,Active,Standard
+30,Iron & Clay,Owner 30,Eastside,Metropolis,40.72605053725614,-73.9669781949151,3.6,174,08:00,21:00,6,5,Active,Budget
+31,High-Class Trims,Owner 31,Northside,Metropolis,40.69363303048619,-74.01342635906656,4.8,2237,08:00,19:00,8,8,Active,Premium
+32,The Clipper Room,Owner 32,Suburbs,Metropolis,40.66854660103976,-74.05384826496322,3.9,475,09:00,19:00,5,3,Active,Budget
+33,True & Valiant,Owner 33,Suburbs,Metropolis,40.74530103289577,-73.95175039885717,4.7,1533,09:00,20:00,8,7,Active,Premium
+34,Heritage Barbers,Owner 34,Westside,Metropolis,40.70991959513679,-73.96585868408432,3.5,760,09:00,20:00,7,6,Active,Budget
+35,Fades & Shades,Owner 35,Northside,Metropolis,40.727265441001904,-74.03180479018421,4.5,636,09:00,19:00,7,6,Active,Premium
+36,Gold Medal Cuts,Owner 36,Northside,Metropolis,40.727255824220336,-73.94447853734137,3.5,953,09:00,21:00,7,6,Active,Budget
+37,The Hair Loft,Owner 37,Suburbs,Metropolis,40.711366958435605,-73.94341425376744,4.2,355,08:00,20:00,2,1,Active,Bottleneck
+38,Sharp Styles,Owner 38,Northside,Metropolis,40.608010195836414,-73.973123899825,4.4,678,08:00,19:00,2,2,Active,Bottleneck
+39,Signature Cuts,Owner 39,Eastside,Metropolis,40.716281882729525,-74.01796029401864,4.9,1804,09:00,19:00,4,4,Active,Premium
+40,Crown Grooming,Owner 40,Eastside,Metropolis,40.716470431061424,-74.08550275658403,5.0,2017,08:00,21:00,4,3,Active,Premium
+41,Redwood Barbers,Owner 41,Downtown,Metropolis,40.7040131244865,-73.99171549713952,3.4,425,08:00,20:00,8,6,Active,Budget
+42,Apex Trims,Owner 42,Westside,Metropolis,40.771915761789664,-74.02673080873095,5.0,2167,08:00,19:00,6,6,Active,Premium
+43,Vogue Men,Owner 43,Westside,Metropolis,40.68046025588428,-74.02607028174339,4.3,791,09:00,21:00,3,2,Active,Standard
+44,The Cutting Edge,Owner 44,Westside,Metropolis,40.74941608470809,-73.99284995561361,3.7,166,09:00,19:00,10,8,Active,Budget
+45,Summit Grooming,Owner 45,Westside,Metropolis,40.69160959184932,-73.98546930267547,4.2,1317,08:00,20:00,3,1,Active,Bottleneck
+46,Atlas Barber,Owner 46,Northside,Metropolis,40.71668310197392,-73.96725420037869,4.8,1170,09:00,19:00,6,6,Active,Premium
+47,Lighthouse Cuts,Owner 47,Downtown,Metropolis,40.68471787624491,-74.01910648586392,3.4,638,09:00,20:00,9,8,Active,Budget
+48,Blue Collar Barbers,Owner 48,Northside,Metropolis,40.69711567387471,-74.06454059792529,4.6,1732,09:00,19:00,7,6,Active,Premium
+49,First Class Barber,Owner 49,Suburbs,Metropolis,40.724644811082584,-73.99555778911281,4.7,963,09:00,21:00,3,1,Active,Bottleneck
+50,The Hangar Shop,Owner 50,Downtown,Metropolis,40.7130045382657,-74.01538348533501,4.3,723,08:00,19:00,3,2,Active,Bottleneck

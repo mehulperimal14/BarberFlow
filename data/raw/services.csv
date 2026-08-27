@@ -1,0 +1,338 @@
+service_id,shop_id,service_name,price,average_duration_minutes
+1,1,Haircut,27.1,30
+2,1,Haircut + Beard,43.36,50
+3,1,Beard Trim,16.26,25
+4,1,Hair Wash,10.84,10
+5,1,Styling,16.26,25
+6,1,Kids Haircut,21.68,30
+7,1,Premium Haircut,54.2,50
+8,2,Haircut,39.06,25
+9,2,Haircut + Beard,62.5,45
+10,2,Beard Trim,23.44,20
+11,2,Hair Wash,15.62,10
+12,2,Styling,23.44,20
+13,2,Kids Haircut,31.25,30
+14,2,Premium Haircut,78.12,55
+15,3,Haircut,20.77,30
+16,3,Haircut + Beard,33.24,45
+17,3,Beard Trim,12.46,20
+18,3,Hair Wash,8.31,20
+19,3,Styling,12.46,15
+20,3,Kids Haircut,16.62,30
+21,4,Haircut,27.37,35
+22,4,Haircut + Beard,43.79,40
+23,4,Beard Trim,16.42,25
+24,4,Hair Wash,10.95,10
+25,4,Styling,16.42,20
+26,4,Kids Haircut,21.89,30
+27,4,Premium Haircut,54.73,55
+28,5,Haircut,28.16,30
+29,5,Haircut + Beard,45.06,40
+30,5,Beard Trim,16.9,15
+31,5,Hair Wash,11.27,20
+32,5,Styling,16.9,20
+33,5,Kids Haircut,22.53,20
+34,5,Premium Haircut,56.33,45
+35,6,Haircut,36.47,25
+36,6,Haircut + Beard,58.36,40
+37,6,Beard Trim,21.88,20
+38,6,Hair Wash,14.59,20
+39,6,Styling,21.88,15
+40,6,Kids Haircut,29.18,25
+41,6,Premium Haircut,72.95,50
+42,7,Haircut,43.86,35
+43,7,Haircut + Beard,70.18,40
+44,7,Beard Trim,26.32,25
+45,7,Hair Wash,17.54,20
+46,7,Styling,26.32,20
+47,7,Kids Haircut,35.09,25
+48,7,Premium Haircut,87.72,50
+49,8,Haircut,25.0,25
+50,8,Haircut + Beard,40.0,40
+51,8,Beard Trim,15.0,25
+52,8,Hair Wash,10.0,20
+53,8,Styling,15.0,15
+54,8,Kids Haircut,20.0,20
+55,8,Premium Haircut,50.0,50
+56,9,Haircut,18.59,35
+57,9,Haircut + Beard,29.75,50
+58,9,Beard Trim,11.16,20
+59,9,Hair Wash,7.44,10
+60,9,Styling,11.16,25
+61,9,Kids Haircut,14.88,20
+62,10,Haircut,29.59,25
+63,10,Haircut + Beard,47.34,45
+64,10,Beard Trim,17.75,15
+65,10,Hair Wash,11.83,15
+66,10,Styling,17.75,25
+67,10,Kids Haircut,23.67,30
+68,10,Premium Haircut,59.17,55
+69,11,Haircut,20.48,30
+70,11,Haircut + Beard,32.76,50
+71,11,Beard Trim,12.29,25
+72,11,Hair Wash,8.19,20
+73,11,Styling,12.29,20
+74,11,Kids Haircut,16.38,30
+75,12,Haircut,27.23,25
+76,12,Haircut + Beard,43.57,50
+77,12,Beard Trim,16.34,20
+78,12,Hair Wash,10.89,15
+79,12,Styling,16.34,20
+80,12,Kids Haircut,21.78,20
+81,12,Premium Haircut,54.46,55
+82,13,Haircut,25.0,30
+83,13,Haircut + Beard,40.0,50
+84,13,Beard Trim,15.0,20
+85,13,Hair Wash,10.0,20
+86,13,Styling,15.0,15
+87,13,Kids Haircut,20.0,25
+88,13,Premium Haircut,50.0,50
+89,14,Haircut,17.89,30
+90,14,Haircut + Beard,28.62,40
+91,14,Beard Trim,10.73,20
+92,14,Hair Wash,7.15,15
+93,14,Styling,10.73,20
+94,14,Kids Haircut,14.31,30
+95,15,Haircut,25.4,25
+96,15,Haircut + Beard,40.64,40
+97,15,Beard Trim,15.24,20
+98,15,Hair Wash,10.16,20
+99,15,Styling,15.24,15
+100,15,Kids Haircut,20.32,30
+101,15,Premium Haircut,50.81,45
+102,16,Haircut,25.32,30
+103,16,Haircut + Beard,40.51,45
+104,16,Beard Trim,15.19,25
+105,16,Hair Wash,10.13,15
+106,16,Styling,15.19,20
+107,16,Kids Haircut,20.26,20
+108,16,Premium Haircut,50.64,45
+109,17,Haircut,29.16,30
+110,17,Haircut + Beard,46.66,50
+111,17,Beard Trim,17.5,25
+112,17,Hair Wash,11.67,10
+113,17,Styling,17.5,25
+114,17,Kids Haircut,23.33,25
+115,17,Premium Haircut,58.33,50
+116,18,Haircut,35.06,30
+117,18,Haircut + Beard,56.09,45
+118,18,Beard Trim,21.04,20
+119,18,Hair Wash,14.02,15
+120,18,Styling,21.04,25
+121,18,Kids Haircut,28.05,30
+122,18,Premium Haircut,70.12,55
+123,19,Haircut,40.46,35
+124,19,Haircut + Beard,64.74,40
+125,19,Beard Trim,24.28,20
+126,19,Hair Wash,16.18,10
+127,19,Styling,24.28,20
+128,19,Kids Haircut,32.37,25
+129,19,Premium Haircut,80.92,50
+130,20,Haircut,25.15,30
+131,20,Haircut + Beard,40.23,50
+132,20,Beard Trim,15.09,25
+133,20,Hair Wash,10.06,15
+134,20,Styling,15.09,25
+135,20,Kids Haircut,20.12,20
+136,20,Premium Haircut,50.29,50
+137,21,Haircut,29.6,35
+138,21,Haircut + Beard,47.36,50
+139,21,Beard Trim,17.76,15
+140,21,Hair Wash,11.84,15
+141,21,Styling,17.76,25
+142,21,Kids Haircut,23.68,30
+143,21,Premium Haircut,59.2,55
+144,22,Haircut,17.64,35
+145,22,Haircut + Beard,28.22,45
+146,22,Beard Trim,10.58,15
+147,22,Hair Wash,7.05,15
+148,22,Styling,10.58,15
+149,22,Kids Haircut,14.11,20
+150,23,Haircut,26.3,30
+151,23,Haircut + Beard,42.08,40
+152,23,Beard Trim,15.78,20
+153,23,Hair Wash,10.52,15
+154,23,Styling,15.78,20
+155,23,Kids Haircut,21.04,25
+156,23,Premium Haircut,52.6,50
+157,24,Haircut,21.26,30
+158,24,Haircut + Beard,34.02,45
+159,24,Beard Trim,12.76,15
+160,24,Hair Wash,8.5,15
+161,24,Styling,12.76,15
+162,24,Kids Haircut,17.01,30
+163,25,Haircut,25.0,35
+164,25,Haircut + Beard,40.0,40
+165,25,Beard Trim,15.0,20
+166,25,Hair Wash,10.0,10
+167,25,Styling,15.0,25
+168,25,Kids Haircut,20.0,20
+169,25,Premium Haircut,50.0,55
+170,26,Haircut,35.4,25
+171,26,Haircut + Beard,56.64,40
+172,26,Beard Trim,21.24,15
+173,26,Hair Wash,14.16,10
+174,26,Styling,21.24,25
+175,26,Kids Haircut,28.32,20
+176,26,Premium Haircut,70.81,45
+177,27,Haircut,25.0,25
+178,27,Haircut + Beard,40.0,45
+179,27,Beard Trim,15.0,25
+180,27,Hair Wash,10.0,10
+181,27,Styling,15.0,25
+182,27,Kids Haircut,20.0,20
+183,27,Premium Haircut,50.0,50
+184,28,Haircut,41.99,30
+185,28,Haircut + Beard,67.19,40
+186,28,Beard Trim,25.2,25
+187,28,Hair Wash,16.8,20
+188,28,Styling,25.2,25
+189,28,Kids Haircut,33.6,30
+190,28,Premium Haircut,83.99,45
+191,29,Haircut,25.0,25
+192,29,Haircut + Beard,40.0,45
+193,29,Beard Trim,15.0,15
+194,29,Hair Wash,10.0,20
+195,29,Styling,15.0,15
+196,29,Kids Haircut,20.0,25
+197,29,Premium Haircut,50.0,55
+198,30,Haircut,20.89,30
+199,30,Haircut + Beard,33.42,45
+200,30,Beard Trim,12.53,25
+201,30,Hair Wash,8.35,10
+202,30,Styling,12.53,15
+203,30,Kids Haircut,16.71,30
+204,31,Haircut,41.91,35
+205,31,Haircut + Beard,67.05,40
+206,31,Beard Trim,25.14,15
+207,31,Hair Wash,16.76,20
+208,31,Styling,25.14,20
+209,31,Kids Haircut,33.52,30
+210,31,Premium Haircut,83.81,55
+211,32,Haircut,21.53,35
+212,32,Haircut + Beard,34.44,40
+213,32,Beard Trim,12.92,20
+214,32,Hair Wash,8.61,20
+215,32,Styling,12.92,20
+216,32,Kids Haircut,17.22,30
+217,33,Haircut,38.71,35
+218,33,Haircut + Beard,61.93,50
+219,33,Beard Trim,23.22,20
+220,33,Hair Wash,15.48,10
+221,33,Styling,23.22,20
+222,33,Kids Haircut,30.96,25
+223,33,Premium Haircut,77.41,45
+224,34,Haircut,19.67,30
+225,34,Haircut + Beard,31.47,50
+226,34,Beard Trim,11.8,20
+227,34,Hair Wash,7.87,20
+228,34,Styling,11.8,15
+229,34,Kids Haircut,15.73,25
+230,35,Haircut,36.76,35
+231,35,Haircut + Beard,58.82,50
+232,35,Beard Trim,22.06,20
+233,35,Hair Wash,14.7,20
+234,35,Styling,22.06,25
+235,35,Kids Haircut,29.41,25
+236,35,Premium Haircut,73.52,50
+237,36,Haircut,19.68,35
+238,36,Haircut + Beard,31.48,50
+239,36,Beard Trim,11.81,20
+240,36,Hair Wash,7.87,15
+241,36,Styling,11.81,15
+242,36,Kids Haircut,15.74,20
+243,37,Haircut,26.39,30
+244,37,Haircut + Beard,42.23,40
+245,37,Beard Trim,15.84,20
+246,37,Hair Wash,10.56,20
+247,37,Styling,15.84,25
+248,37,Kids Haircut,21.12,30
+249,37,Premium Haircut,52.79,50
+250,38,Haircut,26.68,30
+251,38,Haircut + Beard,42.69,45
+252,38,Beard Trim,16.01,15
+253,38,Hair Wash,10.67,15
+254,38,Styling,16.01,15
+255,38,Kids Haircut,21.35,25
+256,38,Premium Haircut,53.36,50
+257,39,Haircut,38.4,35
+258,39,Haircut + Beard,61.45,50
+259,39,Beard Trim,23.04,20
+260,39,Hair Wash,15.36,20
+261,39,Styling,23.04,15
+262,39,Kids Haircut,30.72,30
+263,39,Premium Haircut,76.81,45
+264,40,Haircut,35.86,35
+265,40,Haircut + Beard,57.37,45
+266,40,Beard Trim,21.51,20
+267,40,Hair Wash,14.34,20
+268,40,Styling,21.51,15
+269,40,Kids Haircut,28.68,30
+270,40,Premium Haircut,71.71,50
+271,41,Haircut,20.73,30
+272,41,Haircut + Beard,33.17,45
+273,41,Beard Trim,12.44,15
+274,41,Hair Wash,8.29,10
+275,41,Styling,12.44,20
+276,41,Kids Haircut,16.58,20
+277,42,Haircut,39.04,25
+278,42,Haircut + Beard,62.47,45
+279,42,Beard Trim,23.43,25
+280,42,Hair Wash,15.62,20
+281,42,Styling,23.43,20
+282,42,Kids Haircut,31.24,25
+283,42,Premium Haircut,78.09,55
+284,43,Haircut,25.0,35
+285,43,Haircut + Beard,40.0,45
+286,43,Beard Trim,15.0,20
+287,43,Hair Wash,10.0,20
+288,43,Styling,15.0,25
+289,43,Kids Haircut,20.0,25
+290,43,Premium Haircut,50.0,50
+291,44,Haircut,21.01,30
+292,44,Haircut + Beard,33.62,45
+293,44,Beard Trim,12.61,20
+294,44,Hair Wash,8.41,10
+295,44,Styling,12.61,15
+296,44,Kids Haircut,16.81,30
+297,45,Haircut,25.96,25
+298,45,Haircut + Beard,41.54,50
+299,45,Beard Trim,15.58,25
+300,45,Hair Wash,10.39,20
+301,45,Styling,15.58,15
+302,45,Kids Haircut,20.77,20
+303,45,Premium Haircut,51.93,45
+304,46,Haircut,42.39,30
+305,46,Haircut + Beard,67.82,50
+306,46,Beard Trim,25.43,25
+307,46,Hair Wash,16.95,20
+308,46,Styling,25.43,25
+309,46,Kids Haircut,33.91,25
+310,46,Premium Haircut,84.77,45
+311,47,Haircut,21.66,30
+312,47,Haircut + Beard,34.66,40
+313,47,Beard Trim,13.0,20
+314,47,Hair Wash,8.67,10
+315,47,Styling,13.0,20
+316,47,Kids Haircut,17.33,20
+317,48,Haircut,42.08,25
+318,48,Haircut + Beard,67.33,45
+319,48,Beard Trim,25.25,15
+320,48,Hair Wash,16.83,10
+321,48,Styling,25.25,25
+322,48,Kids Haircut,33.66,25
+323,48,Premium Haircut,84.16,55
+324,49,Haircut,29.72,35
+325,49,Haircut + Beard,47.55,45
+326,49,Beard Trim,17.83,15
+327,49,Hair Wash,11.89,10
+328,49,Styling,17.83,25
+329,49,Kids Haircut,23.78,25
+330,49,Premium Haircut,59.44,50
+331,50,Haircut,27.39,30
+332,50,Haircut + Beard,43.83,40
+333,50,Beard Trim,16.44,15
+334,50,Hair Wash,10.96,15
+335,50,Styling,16.44,20
+336,50,Kids Haircut,21.91,20
+337,50,Premium Haircut,54.79,45

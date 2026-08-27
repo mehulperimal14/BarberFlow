@@ -1,0 +1,28 @@
+# Python caching and environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+.ipynb_checkpoints/
+.pytest_cache/
+
+# Large ML binary models and local database
+models/*.pkl
+backend/app/barberflow.db
+
+# Node dependencies and build assets
+node_modules/
+frontend/node_modules/
+frontend/dist/
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Operating System files
+.DS_Store
+Thumbs.db
