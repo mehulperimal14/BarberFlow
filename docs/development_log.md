@@ -23,7 +23,7 @@ This log documents key milestones, implementation challenges, solutions, and des
 - Coded notebook compiler script to write and execute `01_data_cleaning.ipynb` and `02_eda.ipynb` with full charts.
 
 ## Phase 6: Machine Learning
-- Trained and validated Random Forest Regressor models for client demand ($R^2=0.81$, MAE=0.45 clients/hr) and wait times (MAE=2.1m), and Logistic Regression for appointment no-show probability (72% accuracy).
+- Trained Random Forest and Logistic Regression models in notebooks. (Superseded in Phase 14: the original notebook metrics were demand R² 0.54, wait MAE 8.1 min, no-show balanced accuracy 0.65, not the figures first written here.)
 - Saved model checkpoints under `models/` folder.
 
 ## Phase 7: Backend API Development
@@ -37,8 +37,15 @@ This log documents key milestones, implementation challenges, solutions, and des
 
 ## Phase 12: Testing
 - Programmed a suite of 10 tests in `tests/test_barberflow.py` verifying data schemas, seeding counts, health metrics, and model endpoints.
-- All tests passed.
+- (Phase 14 replaced this suite: the original tests needed `PYTHONPATH=backend` to run.)
 
 ## Phase 13: Documentation
 - Written dictionary, insights report, 30 interview questions, resume bullets, README, and final walkthrough.
 
+
+## Phase 14: Production repair & deployment
+- Fixed join fan-out in shop-performance, location and the Power BI summary (pre-aggregated CTEs); fixed the `/overview?shop_id` 500; fixed SQL #11, #16 and #20.
+- Split storage: a read-only historical SQLite DB (built from CSVs at startup) and a writable live store (PostgreSQL via `DATABASE_URL`, SQLite locally) for the queue and bookings.
+- Retrained models leak-free (`scripts/train_models.py`), served them from JSON without pickle, and read metrics from `model_card.json`.
+- Rewrote the five React pages against the corrected API (services load in the booking modal, persisted barber actions, quadrant chart, relative location thresholds).
+- 18 pytest tests pass on SQLite and PostgreSQL. Deployed on Vercel (static frontend plus a Python function).

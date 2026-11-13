@@ -1,0 +1,157 @@
+{
+  "trained_at": "2026-11-13T15:15:05Z",
+  "data": "simulated dataset: 50 shops, 5,000 customers, 91 days (2026-06-01 to 2026-08-30)",
+  "training_script": "scripts/train_models.py",
+  "export_check_max_abs_diff": {
+    "demand": 8.88e-16,
+    "waiting_time": 7.17e-08,
+    "no_show": 8.33e-17
+  },
+  "models": {
+    "demand": {
+      "name": "Hourly customer demand",
+      "status": "baseline",
+      "algorithm": "Linear Regression",
+      "target": "customers arriving per shop per hour (08:00-20:59)",
+      "features": [
+        "hour",
+        "day_of_week",
+        "weekend_flag",
+        "is_open",
+        "rating",
+        "number_of_seats",
+        "number_of_barbers",
+        "historical_average_demand"
+      ],
+      "rows": 59150,
+      "train_rows": 46800,
+      "test_rows": 12350,
+      "split": "time-based: first 80% of 91 dates train, last 20% test (from 2026-08-12); model chosen on a validation window starting 2026-07-28",
+      "model_selection_validation_mae": {
+        "baseline_historical_average": {
+          "mae": 0.742,
+          "rmse": 1.093,
+          "r2": 0.474
+        },
+        "linear_regression": {
+          "mae": 0.742,
+          "rmse": 1.093,
+          "r2": 0.474
+        },
+        "random_forest": {
+          "mae": 0.741,
+          "rmse": 1.092,
+          "r2": 0.475
+        },
+        "selection_rule": "lowest validation MAE; prefer linear unless forest is >1% better"
+      },
+      "test_metrics": {
+        "mae": 0.757,
+        "rmse": 1.112,
+        "r2": 0.498
+      },
+      "test_metrics_other_candidates": {
+        "random_forest": {
+          "mae": 0.758,
+          "rmse": 1.112,
+          "r2": 0.497
+        }
+      },
+      "test_baseline_historical_average": {
+        "mae": 0.757,
+        "rmse": 1.112,
+        "r2": 0.498
+      },
+      "feature_importances": null,
+      "limitations": [
+        "Trained on simulated data (Poisson arrivals); it learns the simulator's weekday and hour multipliers.",
+        "Most of the signal is the historical shop/hour/weekday average; the model adds little beyond it.",
+        "No seasonality or holidays: the data covers 91 summer days only."
+      ]
+    },
+    "waiting_time": {
+      "name": "Walk-in waiting time",
+      "status": "good on simulated data",
+      "algorithm": "Random Forest Regressor (100 trees, max_depth 10)",
+      "target": "waiting_time_minutes of a visit",
+      "features": [
+        "queue_length",
+        "occupied_seats",
+        "available_seats",
+        "number_of_barbers",
+        "number_of_seats",
+        "hour",
+        "day_of_week"
+      ],
+      "rows": 64991,
+      "train_rows": 50936,
+      "test_rows": 14055,
+      "unmatched_snapshot_rows": 0,
+      "split": "time-based: first 80% of 91 dates train, last 20% test (from 2026-08-12)",
+      "test_metrics": {
+        "mae": 8.485,
+        "rmse": 21.251,
+        "r2": 0.839
+      },
+      "test_baseline_train_mean": {
+        "mae": 29.956,
+        "rmse": 53.041,
+        "r2": -0.0
+      },
+      "test_error_profile": {
+        "median_absolute_error": 0.17,
+        "share_within_5_minutes": 0.725,
+        "mae_when_actual_wait_over_30": 38.54
+      },
+      "feature_importances": {
+        "queue_length": 0.907,
+        "occupied_seats": 0.018,
+        "available_seats": 0.003,
+        "number_of_barbers": 0.035,
+        "number_of_seats": 0.003,
+        "hour": 0.019,
+        "day_of_week": 0.015
+      },
+      "limitations": [
+        "Features describe the queue at the top of the hour, so they can be up to 59 minutes stale.",
+        "Errors are large for very long waits (heavy-tailed target); treat long estimates as ranges.",
+        "In the live demo the queue counts come from the live store, not from a sensor."
+      ]
+    },
+    "no_show": {
+      "name": "Appointment no-show risk",
+      "status": "experimental - not for business decisions",
+      "algorithm": "Logistic Regression (standardised features, unweighted)",
+      "target": "no_show_flag",
+      "features": [
+        "hour",
+        "booking_lag_days",
+        "customer_rating"
+      ],
+      "rows": 32522,
+      "train_rows": 26017,
+      "test_rows": 6505,
+      "split": "stratified random 80/20",
+      "base_rate": 0.0711,
+      "risk_tier_thresholds": {
+        "low_below": 0.0533,
+        "high_at_or_above": 0.1067
+      },
+      "test_metrics": {
+        "roc_auc": 0.682,
+        "balanced_accuracy_at_base_rate_threshold": 0.655,
+        "roc_auc_without_hour_feature": 0.511
+      },
+      "test_tier_distribution": {
+        "Low": 0.458,
+        "Medium": 0.356,
+        "High": 0.185
+      },
+      "limitations": [
+        "In the simulator the no-show label is assigned at random; the only learnable signal is that missed bookings were given uniformly random hours while completed ones follow peak hours.",
+        "Without the hour feature the model is no better than chance (see roc_auc_without_hour_feature).",
+        "Do not use it to charge deposits or penalise customers."
+      ]
+    }
+  }
+}

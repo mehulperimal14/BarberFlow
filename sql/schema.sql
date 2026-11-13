@@ -110,3 +110,7 @@ CREATE INDEX IF NOT EXISTS idx_appointments_shop_date ON appointments(shop_id, a
 CREATE INDEX IF NOT EXISTS idx_visits_shop_date ON visits(shop_id, date);
 CREATE INDEX IF NOT EXISTS idx_availability_shop_timestamp ON availability(shop_id, timestamp);
 CREATE INDEX IF NOT EXISTS idx_reviews_shop ON reviews(shop_id);
+-- Added: speeds up review<->visit matching (satisfaction analysis) and per-customer lookups
+CREATE INDEX IF NOT EXISTS idx_visits_customer_shop ON visits(customer_id, shop_id, date);
+CREATE INDEX IF NOT EXISTS idx_reviews_customer_shop ON reviews(customer_id, shop_id);
+CREATE INDEX IF NOT EXISTS idx_appointments_customer ON appointments(customer_id);

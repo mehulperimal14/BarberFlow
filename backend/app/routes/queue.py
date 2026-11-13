@@ -1,157 +1,163 @@
-from fastapi import APIRouter, HTTPException, Body
-from app.database import execute_query, execute_write
-from datetime import datetime
+"""Virtual queue: live entries (persisted in the live store) + read-only simulated history."""
+from typing import Literal
+
+from fastapi import APIRouter, Request
+from pydantic import BaseModel, Field
+from fastapi import HTTPException
+
+from .. import config, live_store
+from ..database import query, query_one
+from ..domain import (client_ip, estimate_wait, get_customer_or_404, get_service_or_404,
+                      get_shop_or_404, live_window_start, now_local)
 
 router = APIRouter(prefix="/api/queue", tags=["Queue"])
 
+
+class JoinQueueBody(BaseModel):
+    customer_id: int = Field(..., ge=1, le=10_000_000)
+    service_id: int = Field(..., ge=1)
+    source: Literal["customer_app", "barber_walkin"] = "customer_app"
+
+
+class QueueAction(BaseModel):
+    action: Literal["start", "complete", "skip"]
+
+
+def _decorate(entries: list[dict]) -> list[dict]:
+    """Attach customer and service details from the historical DB (cross-store 'join')."""
+    if not entries:
+        return entries
+    cust_ids = sorted({e["customer_id"] for e in entries})
+    srv_ids = sorted({e["service_id"] for e in entries})
+    cust = {r["customer_id"]: r for r in query(
+        f"SELECT customer_id, age_group, gender FROM customers WHERE customer_id IN ({','.join('?' * len(cust_ids))})",
+        cust_ids)}
+    srv = {r["service_id"]: r for r in query(
+        f"SELECT service_id, service_name, price FROM services WHERE service_id IN ({','.join('?' * len(srv_ids))})",
+        srv_ids)}
+    for e in entries:
+        e.update({k: cust.get(e["customer_id"], {}).get(k) for k in ("age_group", "gender")})
+        e.update({k: srv.get(e["service_id"], {}).get(k) for k in ("service_name", "price")})
+    return entries
+
+
+def _shop_queue(shop: dict, executor=None) -> dict:
+    store = live_store.get_store()
+    reader = executor.all if executor else store.read
+    rows = reader("""
+        SELECT * FROM live_queue_entries
+        WHERE shop_id = ? AND joined_at >= ?
+        ORDER BY joined_at, entry_id""", (shop["shop_id"], live_window_start()))
+    in_service = [r for r in rows if r["status"] == "In Service"]
+    waiting = [r for r in rows if r["status"] == "Waiting"]
+    recent = [r for r in rows if r["status"] in ("Completed", "Skipped")][-15:]
+    now = now_local()
+    for pos, r in enumerate(waiting):
+        r["position"] = pos + 1
+        r["estimated_wait_minutes_now"] = estimate_wait(shop, pos, len(in_service), now)
+    return {"in_service": in_service, "waiting": waiting, "recent": recent[::-1]}
+
+
 @router.get("/{shop_id}")
 def get_shop_queue(shop_id: int):
-    """
-    Returns the queue for a shop on the most recent day in the database (simulating 'Today').
-    """
-    # Find latest date in visits
-    latest_date_row = execute_query("SELECT MAX(date) as max_date FROM visits", fetch_all=False)
-    latest_date = latest_date_row["max_date"] if latest_date_row and latest_date_row["max_date"] else "2026-08-30"
-    
-    # Fetch visits for this shop-date
-    query = """
-        SELECT v.*, c.age_group, c.gender, s.service_name, s.price
+    shop = get_shop_or_404(shop_id)
+    store = live_store.get_store()
+    if store is None:
+        return {"shop_id": shop_id, "live_queue_enabled": False, "storage": "disabled",
+                "message": "Live queue is disabled on this deployment because no persistent "
+                           "database is configured. Analytics and predictions still work.",
+                "in_service": [], "waiting": [], "recent": [],
+                "number_of_barbers": shop["number_of_barbers"]}
+    q = _shop_queue(shop)
+    for k in ("in_service", "waiting", "recent"):
+        _decorate(q[k])
+    return {"shop_id": shop_id, "live_queue_enabled": True, "storage": store.backend,
+            "number_of_barbers": shop["number_of_barbers"],
+            "estimated_wait_for_new_customer": estimate_wait(shop, len(q["waiting"]), len(q["in_service"])),
+            **q}
+
+
+@router.get("/{shop_id}/history")
+def get_simulated_day(shop_id: int):
+    """The last simulated day for this shop, exactly as generated (no invented statuses)."""
+    get_shop_or_404(shop_id)
+    day = query_one("SELECT MAX(date) AS d FROM visits WHERE shop_id = ?", (shop_id,))["d"]
+    visits = query("""
+        SELECT v.visit_id, v.customer_id, v.arrival_time, v.service_start_time, v.service_end_time,
+               v.waiting_time_minutes, v.service_duration_minutes, v.seat_id, v.visit_type,
+               c.age_group, c.gender, s.service_name, s.price
         FROM visits v
         JOIN customers c ON v.customer_id = c.customer_id
         JOIN services s ON v.service_id = s.service_id
         WHERE v.shop_id = ? AND v.date = ?
-        ORDER BY v.arrival_time ASC
-    """
-    visits = execute_query(query, (shop_id, latest_date))
-    
-    # Categorize status based on wait time and order
-    # To simulate real-time, we can determine active customers.
-    # In a real app we'd compare to current time. In our portfolio dashboard, we'll return the list of visits
-    # and mark them:
-    # - Completed: if wait time is set and duration is completed
-    # - In Service: first few visits that are not marked completed, or we can use a status flag.
-    # Let's add a dynamic status field for display based on their order in queue:
-    # E.g. the first 2-3 visits are "In Service" (based on shop seat capacity), subsequent ones are "Waiting", and past ones are "Completed".
-    shop_info = execute_query("SELECT number_of_seats, number_of_barbers FROM shops WHERE shop_id = ?", (shop_id,), fetch_all=False)
-    barbers = shop_info["number_of_barbers"] if shop_info else 3
-    
-    # We can assign status dynamically:
-    # Let's say if arrival time is early, it is "Completed".
-    # Let's sort visits by arrival_time
-    for i, v in enumerate(visits):
-        # Let's simulate status for display purposes:
-        if i < 4:
-            v["status"] = "Completed"
-        elif i < 4 + barbers:
-            v["status"] = "In Service"
-        else:
-            v["status"] = "Waiting"
-            
-    return visits
+        ORDER BY v.arrival_time, v.visit_id""", (shop_id, day))
+    return {"shop_id": shop_id, "date": day, "source": "simulated history", "visits": visits}
 
-@router.post("/{shop_id}/join")
-def join_queue(
-    shop_id: int,
-    customer_id: int = Body(..., embed=True),
-    service_id: int = Body(..., embed=True)
-):
-    """
-    Allows a customer to join the walk-in queue.
-    Inserts a new visit record for the latest simulated date.
-    """
-    # Verify customer and service
-    customer = execute_query("SELECT * FROM customers WHERE customer_id = ?", (customer_id,), fetch_all=False)
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
-        
-    service = execute_query("SELECT * FROM services WHERE service_id = ? AND shop_id = ?", (service_id, shop_id), fetch_all=False)
-    if not service:
-        raise HTTPException(status_code=404, detail="Service not found for this shop")
-        
-    # Get current wait time estimation
-    avail = execute_query(
-        "SELECT queue_length, estimated_wait_minutes, occupied_seats, total_seats FROM availability WHERE shop_id = ? ORDER BY timestamp DESC LIMIT 1",
-        (shop_id,),
-        fetch_all=False
-    )
-    
-    wait_time = avail["estimated_wait_minutes"] if avail else 15
-    queue_len = avail["queue_length"] if avail else 0
-    occupied = avail["occupied_seats"] if avail else 0
-    total_seats = avail["total_seats"] if avail else 3
-    
-    # Get latest date in database
-    latest_date_row = execute_query("SELECT MAX(date) as max_date FROM visits", fetch_all=False)
-    latest_date = latest_date_row["max_date"] if latest_date_row and latest_date_row["max_date"] else "2026-08-30"
-    
-    # Calculate arrival time as latest visit arrival time + 15 minutes, or just 12:00
-    last_visit = execute_query(
-        "SELECT arrival_time FROM visits WHERE shop_id = ? AND date = ? ORDER BY arrival_time DESC LIMIT 1",
-        (shop_id, latest_date),
-        fetch_all=False
-    )
-    if last_visit:
-        last_h, last_m = map(int, last_visit["arrival_time"].split(":"))
-        new_m = last_m + 15
-        new_h = last_h + (new_m // 60)
-        new_m = new_m % 60
-        arrival_time_str = f"{min(new_h, 21):02d}:{new_m:02d}"
-    else:
-        arrival_time_str = "10:00"
-        
-    duration = service["average_duration_minutes"]
-    
-    # Calculate service start and end
-    start_h, start_m = map(int, arrival_time_str.split(":"))
-    start_m += wait_time
-    start_h += (start_m // 60)
-    start_m = start_m % 60
-    start_time_str = f"{min(start_h, 21):02d}:{start_m:02d}"
-    
-    end_m = start_m + duration
-    end_h = start_h + (end_m // 60)
-    end_m = end_m % 60
-    end_time_str = f"{min(end_h, 21):02d}:{end_m:02d}"
-    
-    # Insert new visit
-    query = """
-        INSERT INTO visits (customer_id, shop_id, service_id, date, arrival_time, service_start_time, service_end_time, waiting_time_minutes, service_duration_minutes, seat_id, visit_type)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Walk-in')
-    """
-    visit_id = execute_write(query, (
-        customer_id, shop_id, service_id, latest_date, 
-        arrival_time_str, start_time_str, end_time_str, 
-        wait_time, duration, (occupied % total_seats) + 1
-    ))
-    
-    # Update availability snapshot log
-    timestamp_str = f"{latest_date} {datetime.now().strftime('%H:%M:%S')}"
-    new_occupied = min(occupied + 1, total_seats)
-    new_queue = queue_len + 1
-    new_wait = wait_time + 15 # simple add wait
-    
-    execute_write("""
-        INSERT OR REPLACE INTO availability (timestamp, shop_id, total_seats, occupied_seats, available_seats, queue_length, estimated_wait_minutes)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (timestamp_str, shop_id, total_seats, new_occupied, total_seats - new_occupied, new_queue, new_wait))
-    
-    return {
-        "status": "success",
-        "visit_id": visit_id,
-        "queue_number": new_queue + new_occupied,
-        "estimated_wait_minutes": wait_time,
-        "arrival_time": arrival_time_str,
-        "estimated_start_time": start_time_str
-    }
 
-@router.delete("/{visit_id}/skip")
-def skip_visit(visit_id: int):
-    """
-    Barber skips or cancels a customer in the queue.
-    """
-    visit = execute_query("SELECT * FROM visits WHERE visit_id = ?", (visit_id,), fetch_all=False)
-    if not visit:
-        raise HTTPException(status_code=404, detail="Queue record not found")
-        
-    execute_write("DELETE FROM visits WHERE visit_id = ?", (visit_id,))
-    return {"status": "success", "message": f"Visit {visit_id} removed from queue"}
+@router.post("/{shop_id}/join", status_code=201)
+def join_queue(shop_id: int, body: JoinQueueBody, request: Request):
+    shop = get_shop_or_404(shop_id)
+    if shop["shop_status"] != "Active":
+        raise HTTPException(status_code=409, detail="This shop is not accepting customers")
+    get_customer_or_404(body.customer_id)
+    service = get_service_or_404(body.service_id, shop_id)
+    store = live_store.require_store()
+    fingerprint = live_store.client_fingerprint(client_ip(request))
+    with store.transaction(lock_key=shop_id) as tx:
+        tx.check_rate_limit(fingerprint)
+        window = live_window_start()
+        active = tx.all("""SELECT customer_id, status FROM live_queue_entries
+                           WHERE shop_id = ? AND status IN ('Waiting', 'In Service') AND joined_at >= ?""",
+                        (shop_id, window))
+        if any(int(a["customer_id"]) == body.customer_id for a in active):
+            raise HTTPException(status_code=409, detail="This customer is already in this shop's queue")
+        waiting = sum(1 for a in active if a["status"] == "Waiting")
+        in_service = len(active) - waiting
+        if waiting >= config.MAX_ACTIVE_QUEUE_PER_SHOP:
+            raise HTTPException(status_code=409, detail="The queue is full right now; please try another shop")
+        eta = estimate_wait(shop, waiting, in_service)
+        row = tx.one("""
+            INSERT INTO live_queue_entries (shop_id, customer_id, service_id, service_duration_minutes,
+                status, source, joined_at, estimated_wait_minutes, client_hash)
+            VALUES (?, ?, ?, ?, 'Waiting', ?, ?, ?, ?) RETURNING entry_id, joined_at""",
+            (shop_id, body.customer_id, body.service_id, service["average_duration_minutes"],
+             body.source, live_store.iso(live_store.utcnow()), eta, fingerprint))
+    return {"status": "success", "entry_id": row["entry_id"], "shop_id": shop_id,
+            "shop_name": shop["shop_name"], "service_name": service["service_name"],
+            "price": service["price"], "position": waiting + 1, "people_ahead": waiting,
+            "estimated_wait_minutes": eta, "joined_at": row["joined_at"]}
+
+
+_TRANSITIONS = {
+    "start": ({"Waiting"}, "In Service", "started_at"),
+    "complete": ({"In Service"}, "Completed", "completed_at"),
+    "skip": ({"Waiting"}, "Skipped", "completed_at"),
+}
+
+
+@router.patch("/entries/{entry_id}")
+def update_entry(entry_id: int, body: QueueAction, request: Request):
+    store = live_store.require_store()
+    fingerprint = live_store.client_fingerprint(client_ip(request))
+    allowed_from, new_status, ts_col = _TRANSITIONS[body.action]
+    entry = store.read("SELECT * FROM live_queue_entries WHERE entry_id = ?", (entry_id,))
+    if not entry:
+        raise HTTPException(status_code=404, detail="Queue entry not found")
+    shop = get_shop_or_404(int(entry[0]["shop_id"]))
+    with store.transaction(lock_key=shop["shop_id"]) as tx:
+        tx.check_rate_limit(fingerprint)
+        current = tx.one("SELECT status FROM live_queue_entries WHERE entry_id = ?", (entry_id,))
+        if current["status"] not in allowed_from:
+            raise HTTPException(status_code=409,
+                                detail=f"Cannot {body.action} an entry that is '{current['status']}'")
+        if body.action == "start":
+            busy = tx.scalar("""SELECT COUNT(*) AS n FROM live_queue_entries
+                                WHERE shop_id = ? AND status = 'In Service' AND joined_at >= ?""",
+                             (shop["shop_id"], live_window_start()))
+            if busy >= shop["number_of_barbers"]:
+                raise HTTPException(status_code=409,
+                                    detail=f"All {shop['number_of_barbers']} barber(s) are busy")
+        row = tx.one(f"""UPDATE live_queue_entries SET status = ?, {ts_col} = ?
+                         WHERE entry_id = ? RETURNING entry_id, status""",
+                     (new_status, live_store.iso(live_store.utcnow()), entry_id))
+    return {"status": "success", "entry_id": row["entry_id"], "new_status": row["status"]}

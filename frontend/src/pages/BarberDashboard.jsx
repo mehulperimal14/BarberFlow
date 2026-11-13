@@ -1,328 +1,261 @@
-import React, { useState, useEffect } from 'react';
-import { fetchShops, fetchQueue, skipQueue, joinQueue, fetchShopAnalytics } from '../services/api';
-import { Users, Clock, Flame, CreditCard, ChevronRight, UserPlus, Trash, Check, Play, Lightbulb } from 'lucide-react';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, BarChart, Bar } from 'recharts';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  fetchShops, fetchShopDetail, fetchQueue, fetchShopAnalytics, fetchLiveBookings, fetchSimulatedDay,
+  joinQueue, updateQueueEntry,
+} from '../services/api';
+import { UserPlus, Check, Play, Lightbulb, SkipForward, RefreshCw, CalendarDays, History } from 'lucide-react';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
+import { Card, Kpi, Loading, Notice, buttonGold, fmt, money, selectClass, tooltipStyle } from '../components/ui';
+
+const POLL_MS = 10000;
+
+const shopFromHash = () => {
+  const parts = window.location.hash.replace(/^#\/?/, '').split('/');
+  return parts[0] === 'barber' && parts[1] ? parseInt(parts[1], 10) : null;
+};
+
+const sinceLabel = (iso) => {
+  if (!iso) return '';
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  return mins < 1 ? 'just now' : mins < 60 ? `${mins} min ago` : `${Math.floor(mins / 60)} h ${mins % 60} m ago`;
+};
 
 export default function BarberDashboard() {
   const [shops, setShops] = useState([]);
-  const [selectedShopId, setSelectedShopId] = useState(1);
-  const [queue, setQueue] = useState([]);
+  const [shopId, setShopId] = useState(shopFromHash() || 1);
+  const [detail, setDetail] = useState(null);
+  const [queue, setQueue] = useState(null);
   const [analytics, setAnalytics] = useState(null);
-  const [showAddWalkin, setShowAddWalkin] = useState(false);
-  const [walkinCustId, setWalkinCustId] = useState('');
-  const [walkinSrvId, setWalkinSrvId] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [bookings, setBookings] = useState(null);
+  const [history, setHistory] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [busyId, setBusyId] = useState(null);
+  const [walkin, setWalkin] = useState({ open: false, customer: '', service: '' });
+
+  useEffect(() => { fetchShops().then(setShops).catch(err => setError(err.message)); }, []);
+
+  const refreshLive = useCallback(async () => {
+    try {
+      const [q, b] = await Promise.all([fetchQueue(shopId), fetchLiveBookings(shopId)]);
+      setQueue(q); setBookings(b); setError('');
+    } catch (err) { setError(err.message); }
+  }, [shopId]);
 
   useEffect(() => {
-    loadShops();
-  }, []);
+    let alive = true;
+    setLoading(true); setHistory(null); setShowHistory(false);
+    window.history.replaceState(null, '', `#/barber/${shopId}`);
+    Promise.all([fetchShopDetail(shopId), fetchShopAnalytics(shopId), fetchQueue(shopId), fetchLiveBookings(shopId)])
+      .then(([d, a, q, b]) => { if (alive) { setDetail(d); setAnalytics(a); setQueue(q); setBookings(b); setError(''); } })
+      .catch(err => alive && setError(err.message))
+      .finally(() => alive && setLoading(false));
+    return () => { alive = false; };
+  }, [shopId]);
 
+  // Near-real-time: poll the live queue (WebSockets are not available on serverless functions).
   useEffect(() => {
-    if (selectedShopId) {
-      loadQueueAndAnalytics();
-    }
-  }, [selectedShopId]);
+    if (!queue?.live_queue_enabled) return undefined;
+    const t = setInterval(refreshLive, POLL_MS);
+    return () => clearInterval(t);
+  }, [queue?.live_queue_enabled, refreshLive]);
 
-  const loadShops = async () => {
-    try {
-      const data = await fetchShops();
-      setShops(data);
-      if (data.length > 0) {
-        setSelectedShopId(data[0].shop_id);
-      }
-    } catch (err) {
-      console.error(err);
-    }
+  const act = async (entryId, action) => {
+    setBusyId(entryId); setActionError('');
+    try { await updateQueueEntry(entryId, action); await refreshLive(); }
+    catch (err) { setActionError(err.message); }
+    finally { setBusyId(null); }
   };
 
-  const loadQueueAndAnalytics = async () => {
-    setLoading(true);
-    try {
-      const qData = await fetchQueue(selectedShopId);
-      setQueue(qData);
-      
-      const aData = await fetchShopAnalytics(selectedShopId);
-      setAnalytics(aData);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleStartService = (visitId) => {
-    // Modify status locally for demo simulation
-    setQueue(prev => prev.map(q => q.visit_id === visitId ? { ...q, status: "In Service" } : q));
-  };
-
-  const handleCompleteService = (visitId) => {
-    setQueue(prev => prev.map(q => q.visit_id === visitId ? { ...q, status: "Completed" } : q));
-  };
-
-  const handleSkip = async (visitId) => {
-    if (!confirm("Are you sure you want to skip/cancel this customer?")) return;
-    try {
-      await skipQueue(visitId);
-      loadQueueAndAnalytics();
-    } catch (err) {
-      alert("Error removing customer");
-    }
-  };
-
-  const handleAddWalkinSubmit = async (e) => {
+  const addWalkin = async (e) => {
     e.preventDefault();
-    if (!walkinCustId || !walkinSrvId) {
-      alert("Please enter customer ID and select a service");
-      return;
-    }
+    setActionError('');
     try {
-      await joinQueue(selectedShopId, parseInt(walkinCustId), parseInt(walkinSrvId));
-      setShowAddWalkin(false);
-      setWalkinCustId('');
-      loadQueueAndAnalytics();
-    } catch (err) {
-      alert(err.message);
+      await joinQueue(shopId, parseInt(walkin.customer, 10), parseInt(walkin.service, 10), 'barber_walkin');
+      setWalkin({ open: false, customer: '', service: '' });
+      await refreshLive();
+    } catch (err) { setActionError(err.message); }
+  };
+
+  const toggleHistory = async () => {
+    const next = !showHistory;
+    setShowHistory(next);
+    if (next && !history) {
+      try { setHistory(await fetchSimulatedDay(shopId)); } catch (err) { setActionError(err.message); }
     }
   };
 
-  // Safe fallback KPI values
-  const totalVisits = queue.length;
-  const inService = queue.filter(q => q.status === "In Service").length;
-  const waiting = queue.filter(q => q.status === "Waiting").length;
-  
-  const totalRevenue = analytics?.kpis?.total_revenue || 0.0;
-  const avgWait = analytics?.kpis?.avg_wait || 0;
-  const repeatRate = analytics?.repeat_customer_rate_pct || 0;
-
-  // Format charts
-  const revByServiceData = analytics?.services_revenue?.map(s => ({
-    name: s.service_name,
-    visits: s.count,
-    revenue: s.revenue
-  })) || [];
+  const live = queue?.live_queue_enabled;
+  const kpis = analytics?.kpis || {};
+  const serviceChart = (analytics?.services_revenue || []).map(s => ({ name: s.service_name, visits: s.count }));
 
   return (
     <div className="space-y-6">
-      {/* Top Selector */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 py-4 border-b border-brand-800">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 py-2 border-b border-brand-800 pb-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-white">Barber Dashboard</h1>
-          <p className="text-gray-400 text-sm">Manage queue flow, add walk-ins, and view daily analytics.</p>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white">Barber Dashboard</h1>
+          <p className="text-gray-400 text-sm">Run today's live queue, check in walk-ins, and review the shop's history.</p>
         </div>
-        <div>
-          <select 
-            value={selectedShopId}
-            onChange={(e) => setSelectedShopId(parseInt(e.target.value))}
-            className="bg-brand-800 border border-brand-700 text-white rounded-lg p-2.5 text-sm focus:outline-none focus:border-accent-gold"
-          >
-            {shops.map(shop => (
-              <option key={shop.shop_id} value={shop.shop_id}>{shop.shop_name}</option>
-            ))}
-          </select>
-        </div>
+        <select aria-label="Shop" value={shopId} onChange={(e) => setShopId(parseInt(e.target.value, 10))} className={`${selectClass} text-sm p-2.5 max-w-full`}>
+          {shops.map(s => <option key={s.shop_id} value={s.shop_id}>{s.shop_name} ({s.shop_type})</option>)}
+        </select>
       </div>
 
-      {loading ? (
-        <div className="text-center py-12 text-gray-500">Loading shop data...</div>
-      ) : (
-        <div className="space-y-6">
-          {/* Today's KPIs */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="glass-card p-5 rounded-xl flex items-center gap-4">
-              <div className="p-3 bg-brand-800 rounded-lg text-accent-gold"><Users size={24} /></div>
-              <div>
-                <span className="block text-xs text-gray-500 font-bold uppercase">Queue length</span>
-                <span className="text-2xl font-black text-white">{waiting} waiting <span className="text-xs font-normal text-gray-400">({inService} busy)</span></span>
-              </div>
-            </div>
-            
-            <div className="glass-card p-5 rounded-xl flex items-center gap-4">
-              <div className="p-3 bg-brand-800 rounded-lg text-accent-gold"><Clock size={24} /></div>
-              <div>
-                <span className="block text-xs text-gray-500 font-bold uppercase">Avg wait time</span>
-                <span className="text-2xl font-black text-white">{avgWait} mins</span>
-              </div>
-            </div>
-
-            <div className="glass-card p-5 rounded-xl flex items-center gap-4">
-              <div className="p-3 bg-brand-800 rounded-lg text-accent-gold"><CreditCard size={24} /></div>
-              <div>
-                <span className="block text-xs text-gray-500 font-bold uppercase">Total revenue</span>
-                <span className="text-2xl font-black text-white">${totalRevenue.toLocaleString()}</span>
-              </div>
-            </div>
-
-            <div className="glass-card p-5 rounded-xl flex items-center gap-4">
-              <div className="p-3 bg-brand-800 rounded-lg text-accent-gold"><Flame size={24} /></div>
-              <div>
-                <span className="block text-xs text-gray-500 font-bold uppercase">Repeat clients</span>
-                <span className="text-2xl font-black text-white">{repeatRate}%</span>
-              </div>
-            </div>
+      {error && <Notice tone="error">{error}</Notice>}
+      {loading ? <Loading label="Loading shop…" /> : (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <Kpi label="Live queue" value={live ? `${queue.waiting.length} waiting` : '—'}
+                 hint={live ? `${queue.in_service.length} of ${queue.number_of_barbers} barber(s) busy · new arrival waits ~${queue.estimated_wait_for_new_customer} min` : 'Live queue disabled'} />
+            <Kpi label="Avg wait (history)" value={`${fmt(kpis.avg_wait, 1)} min`} hint={`${fmt(kpis.total_visits)} simulated visits`} />
+            <Kpi label="Revenue (history)" value={money(kpis.total_revenue)} hint={`Avg ticket ${money(kpis.avg_ticket)} · list prices`} />
+            <Kpi label="Repeat clients" value={`${fmt(analytics?.repeat_customer_rate_pct, 1)}%`}
+                 hint={`No-show ${fmt(analytics?.appointment_noshow_rate_pct, 1)}% · cancel ${fmt(analytics?.appointment_cancellation_rate_pct, 1)}%`} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Live Queue Table (2/3 width) */}
-            <div className="lg:col-span-2 glass-card rounded-xl p-5 space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-bold text-white">Live Queue Management</h3>
-                <button 
-                  onClick={() => setShowAddWalkin(true)}
-                  className="flex items-center gap-1.5 bg-accent-gold hover:bg-accent-goldHover text-brand-900 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-accent"
-                >
-                  <UserPlus size={15} /> Add Walk-in
-                </button>
-              </div>
-
-              {/* Add Walkin Dialog */}
-              {showAddWalkin && (
-                <form onSubmit={handleAddWalkinSubmit} className="bg-brand-800/60 p-4 border border-brand-700 rounded-xl grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">Customer ID (1-5000)</label>
-                    <input 
-                      type="number" 
-                      placeholder="e.g. 12"
-                      value={walkinCustId}
-                      onChange={(e) => setWalkinCustId(e.target.value)}
-                      className="w-full bg-brand-950 border border-brand-700 rounded-lg text-xs p-2 text-white focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">Select Service</label>
-                    <select
-                      value={walkinSrvId}
-                      onChange={(e) => setWalkinSrvId(e.target.value)}
-                      className="w-full bg-brand-950 border border-brand-700 rounded-lg text-xs p-2 text-white focus:outline-none"
-                    >
-                      <option value="">Choose Service</option>
-                      {analytics?.services_revenue?.map((s, idx) => (
-                        <option key={idx} value={idx + 1}>{s.service_name}</option> // Mock match service_id
-                      ))}
+            <Card className="lg:col-span-2" title="Live queue"
+              subtitle={live ? `Stored in ${queue.storage === 'postgres' ? 'PostgreSQL' : 'SQLite'} · refreshes every ${POLL_MS / 1000}s` : queue?.message}
+              right={live && (
+                <div className="flex gap-2">
+                  <button onClick={refreshLive} aria-label="Refresh queue" className="p-1.5 rounded-lg border border-brand-700 text-gray-400 hover:text-white"><RefreshCw size={14} /></button>
+                  <button onClick={() => setWalkin({ ...walkin, open: !walkin.open })} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs ${buttonGold}`}>
+                    <UserPlus size={14} /> Add walk-in
+                  </button>
+                </div>
+              )}>
+              {actionError && <Notice tone="error">{actionError}</Notice>}
+              {walkin.open && (
+                <form onSubmit={addWalkin} className="bg-brand-800/60 p-4 border border-brand-700 rounded-xl grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                  <label className="text-xs text-gray-400 space-y-1">Customer ID (1–5000)
+                    <input type="number" min={1} max={5000} required value={walkin.customer} onChange={(e) => setWalkin({ ...walkin, customer: e.target.value })}
+                      className="w-full bg-brand-950 border border-brand-700 rounded-lg text-xs p-2 text-white" placeholder="e.g. 12" />
+                  </label>
+                  <label className="text-xs text-gray-400 space-y-1">Service
+                    <select required value={walkin.service} onChange={(e) => setWalkin({ ...walkin, service: e.target.value })} className={`w-full ${selectClass}`}>
+                      <option value="">Choose service</option>
+                      {detail?.services.map(s => <option key={s.service_id} value={s.service_id}>{s.service_name} (${s.price})</option>)}
                     </select>
-                  </div>
+                  </label>
                   <div className="flex gap-2">
-                    <button type="submit" className="flex-1 bg-accent-gold text-brand-900 text-xs font-bold py-2 rounded-lg">Check-in</button>
-                    <button type="button" onClick={() => setShowAddWalkin(false)} className="bg-brand-700 text-white text-xs font-bold py-2 px-3 rounded-lg">Cancel</button>
+                    <button type="submit" className={`flex-1 text-xs py-2 ${buttonGold}`}>Check in</button>
+                    <button type="button" onClick={() => setWalkin({ open: false, customer: '', service: '' })} className="bg-brand-700 text-white text-xs font-bold py-2 px-3 rounded-lg">Cancel</button>
                   </div>
                 </form>
               )}
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-brand-800 text-xs text-gray-500 font-bold uppercase">
-                      <th className="py-2.5">Ticket</th>
-                      <th>Customer Info</th>
-                      <th>Service</th>
-                      <th>Type</th>
-                      <th>Status</th>
-                      <th className="text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {queue.length === 0 ? (
-                      <tr>
-                        <td colSpan="6" className="text-center py-6 text-gray-500 text-sm">Queue is empty.</td>
+              {live && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[560px]">
+                    <thead>
+                      <tr className="border-b border-brand-800 text-[11px] text-gray-500 font-bold uppercase">
+                        <th className="py-2">Ticket</th><th>Customer</th><th>Service</th><th>Status</th><th>Joined</th><th className="text-right">Actions</th>
                       </tr>
-                    ) : (
-                      queue.map((item, idx) => (
-                        <tr key={item.visit_id} className="border-b border-brand-850 hover:bg-brand-800/10 text-sm transition-all">
-                          <td className="py-3 font-bold text-accent-gold">#{idx + 1}</td>
+                    </thead>
+                    <tbody className="text-sm">
+                      {queue.in_service.length + queue.waiting.length === 0 && (
+                        <tr><td colSpan={6} className="text-center py-6 text-gray-500 text-sm">
+                          Nobody is waiting. Join from the Customer App or add a walk-in.
+                        </td></tr>
+                      )}
+                      {[...queue.in_service, ...queue.waiting].map(item => (
+                        <tr key={item.entry_id} className="border-b border-brand-850">
+                          <td className="py-2.5 font-bold text-accent-gold">#{item.entry_id}</td>
+                          <td><span className="block text-white font-semibold">Customer {item.customer_id}</span>
+                            <span className="text-xs text-gray-500">{item.gender}, {item.age_group} · {item.source === 'barber_walkin' ? 'walk-in' : 'app'}</span></td>
+                          <td><span className="block text-white">{item.service_name}</span><span className="text-xs text-gray-500">{item.service_duration_minutes} min</span></td>
                           <td>
-                            <span className="block text-white font-semibold">User {item.customer_id}</span>
-                            <span className="text-xs text-gray-500">{item.gender}, {item.age_group}</span>
+                            {item.status === 'In Service'
+                              ? <span className="text-xs font-semibold text-emerald-400">In service</span>
+                              : <span className="text-xs font-semibold text-yellow-500">Waiting #{item.position} · ~{item.estimated_wait_minutes_now} min</span>}
                           </td>
-                          <td>
-                            <span className="block text-white font-medium">{item.service_name}</span>
-                            <span className="text-xs text-gray-500">{item.service_duration_minutes} min</span>
-                          </td>
-                          <td>
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${item.visit_type === 'Appointment' ? 'bg-indigo-900/30 text-indigo-400 border border-indigo-900' : 'bg-amber-900/30 text-amber-400 border border-amber-900'}`}>
-                              {item.visit_type}
-                            </span>
-                          </td>
-                          <td>
-                            <span className={`text-xs font-semibold ${item.status === 'Completed' ? 'text-gray-500' : item.status === 'In Service' ? 'text-emerald-400' : 'text-yellow-500'}`}>
-                              {item.status}
-                            </span>
-                          </td>
-                          <td className="text-right py-3 space-x-1.5">
-                            {item.status === "Waiting" && (
-                              <button 
-                                onClick={() => handleStartService(item.visit_id)}
-                                className="bg-brand-700 hover:bg-brand-650 text-white p-1.5 rounded-md text-xs font-bold inline-flex items-center gap-1 transition-all"
-                                title="Start Service"
-                              >
-                                <Play size={12} /> Start
-                              </button>
+                          <td className="text-xs text-gray-500">{sinceLabel(item.joined_at)}</td>
+                          <td className="text-right py-2 space-x-1.5 whitespace-nowrap">
+                            {item.status === 'Waiting' && (
+                              <>
+                                <button disabled={busyId === item.entry_id} onClick={() => act(item.entry_id, 'start')} className="bg-brand-700 hover:bg-brand-650 text-white px-2 py-1 rounded-md text-xs font-bold inline-flex items-center gap-1 disabled:opacity-50"><Play size={12} /> Start</button>
+                                <button disabled={busyId === item.entry_id} onClick={() => act(item.entry_id, 'skip')} aria-label="Skip customer" title="Skip (no-show)" className="border border-brand-700 text-gray-400 hover:text-red-400 px-2 py-1 rounded-md text-xs disabled:opacity-50"><SkipForward size={12} /></button>
+                              </>
                             )}
-                            {item.status === "In Service" && (
-                              <button 
-                                onClick={() => handleCompleteService(item.visit_id)}
-                                className="bg-emerald-600 hover:bg-emerald-555 text-white p-1.5 rounded-md text-xs font-bold inline-flex items-center gap-1 transition-all"
-                                title="Complete"
-                              >
-                                <Check size={12} /> Finish
-                              </button>
-                            )}
-                            {item.status !== "Completed" && (
-                              <button 
-                                onClick={() => handleSkip(item.visit_id)}
-                                className="bg-brand-850 hover:bg-red-950/40 text-gray-400 hover:text-red-400 border border-brand-800 p-1.5 rounded-md text-xs transition-all"
-                                title="Skip customer"
-                              >
-                                <Trash size={12} />
-                              </button>
+                            {item.status === 'In Service' && (
+                              <button disabled={busyId === item.entry_id} onClick={() => act(item.entry_id, 'complete')} className="bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1 rounded-md text-xs font-bold inline-flex items-center gap-1 disabled:opacity-50"><Check size={12} /> Finish</button>
                             )}
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                      ))}
+                    </tbody>
+                  </table>
+                  {queue.recent.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-3">
+                      Recently: {queue.recent.slice(0, 6).map(r => `#${r.entry_id} ${r.status.toLowerCase()}`).join(' · ')}
+                    </p>
+                  )}
+                </div>
+              )}
+            </Card>
 
-            {/* Sidebar Suggestions & Charts (1/3 width) */}
-            <div className="space-y-6">
-              {/* Automated Insights */}
-              <div className="glass-card rounded-xl p-5 space-y-4">
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Lightbulb size={20} className="text-accent-gold" /> Business Optimization
-                </h3>
+            <div className="space-y-6 min-w-0">
+              <Card title={<span className="flex items-center gap-2"><Lightbulb size={16} className="text-accent-gold" /> Recommendations</span>} subtitle="Rules computed from this shop's history">
                 <div className="space-y-3">
-                  {analytics?.business_recommendations?.map((rec, i) => (
-                    <div key={i} className="bg-brand-850/40 border border-brand-800 p-3 rounded-lg space-y-1">
+                  {analytics?.business_recommendations?.map(rec => (
+                    <div key={rec.type} className="bg-brand-850/40 border border-brand-800 p-3 rounded-lg space-y-1">
                       <span className="block text-xs font-bold text-accent-gold">{rec.type}</span>
                       <p className="text-xs text-gray-400 leading-relaxed">{rec.message}</p>
                     </div>
                   ))}
-                  {!analytics?.business_recommendations?.length && (
-                    <p className="text-gray-500 text-xs text-center py-4">No recommendations at this time.</p>
-                  )}
                 </div>
-              </div>
-
-              {/* Service Sales Performance Chart */}
-              <div className="glass-card rounded-xl p-5">
-                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Volume by Service Category</h3>
-                <div className="h-44">
-                  {revByServiceData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={revByServiceData.slice(0, 4)}>
-                        <XAxis dataKey="name" stroke="#757c85" fontSize={10} tickLine={false} />
-                        <Tooltip contentStyle={{ backgroundColor: '#121418', borderColor: '#2c3139' }} labelStyle={{ color: '#fff' }} />
-                        <Bar dataKey="visits" name="Visits" fill="#C5A880" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <p className="text-gray-500 text-xs text-center py-12">No sales logs found.</p>
+              </Card>
+              <Card title={<span className="flex items-center gap-2"><CalendarDays size={16} className="text-accent-gold" /> Upcoming bookings</span>}>
+                {!bookings?.live_bookings_enabled ? <p className="text-xs text-gray-500">Bookings are disabled on this deployment.</p>
+                  : bookings.bookings.length === 0 ? <p className="text-xs text-gray-500">No upcoming bookings yet.</p> : (
+                    <ul className="space-y-1.5 text-xs">
+                      {bookings.bookings.map(b => (
+                        <li key={b.booking_id} className="flex justify-between gap-2 border-b border-brand-850 pb-1">
+                          <span className="text-gray-300">{b.appointment_date} {b.appointment_time}</span>
+                          <span className="text-gray-500 truncate">#{b.customer_id} · {b.service_name}</span>
+                        </li>
+                      ))}
+                    </ul>
                   )}
+              </Card>
+              <Card title="Visits by service (history)">
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={serviceChart} layout="vertical" margin={{ left: 10 }}>
+                      <XAxis type="number" stroke="#757c85" fontSize={10} />
+                      <YAxis type="category" dataKey="name" stroke="#757c85" fontSize={10} width={95} />
+                      <Tooltip {...tooltipStyle} />
+                      <Bar dataKey="visits" name="Visits" fill="#C5A880" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
-              </div>
+              </Card>
             </div>
           </div>
-        </div>
+
+          <Card title={<span className="flex items-center gap-2"><History size={16} className="text-accent-gold" /> Last simulated day</span>}
+                subtitle="The shop's final day in the generated dataset, exactly as simulated (arrival, start, end, wait)."
+                right={<button onClick={toggleHistory} className="text-xs text-accent-gold hover:underline">{showHistory ? 'Hide' : 'Show'}</button>}>
+            {showHistory && (!history ? <Loading /> : (
+              <div className="overflow-x-auto">
+                <p className="text-xs text-gray-500 mb-2">{history.date} · {history.visits.length} visits</p>
+                <table className="w-full text-left text-xs min-w-[560px]">
+                  <thead><tr className="text-gray-500 uppercase border-b border-brand-800"><th className="py-1.5">Arrived</th><th>Start</th><th>End</th><th>Wait</th><th>Service</th><th>Type</th></tr></thead>
+                  <tbody>
+                    {history.visits.map(v => (
+                      <tr key={v.visit_id} className="border-b border-brand-850 text-gray-300">
+                        <td className="py-1.5">{v.arrival_time}</td><td>{v.service_start_time}</td><td>{v.service_end_time}</td>
+                        <td className={v.waiting_time_minutes > 30 ? 'text-red-400' : ''}>{v.waiting_time_minutes} min</td>
+                        <td>{v.service_name}</td><td>{v.visit_type}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </Card>
+        </>
       )}
     </div>
   );

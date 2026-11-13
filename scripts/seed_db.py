@@ -1,62 +1,31 @@
-import os
-import sqlite3
-import pandas as pd
+"""Build the historical SQLite database (backend/app/barberflow.db) from data/processed/*.csv.
 
-def seed_database():
-    db_path = 'backend/app/barberflow.db'
-    schema_path = 'sql/schema.sql'
-    data_dir = 'data/processed'
+Usage (from any directory):  python scripts/seed_db.py [--force]
+Uses only the Python standard library. The API also builds the database automatically on first
+use if it is missing, so running this script is optional.
+"""
+import sys
+import time
+from pathlib import Path
 
-    # Create backend app directory if not exists
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 
-    print(f"Connecting to database at {db_path}...")
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
+from backend.app import config  # noqa: E402
+from backend.app.database import build_database  # noqa: E402
 
-    # Read and execute schema
-    print(f"Initializing schema from {schema_path}...")
-    with open(schema_path, 'r') as f:
-        schema_sql = f.read()
-    cursor.executescript(schema_sql)
-    conn.commit()
 
-    # List of tables and corresponding CSVs
-    tables = [
-        ("shops", "shops.csv"),
-        ("services", "services.csv"),
-        ("customers", "customers.csv"),
-        ("appointments", "appointments.csv"),
-        ("visits", "visits.csv"),
-        ("availability", "availability.csv"),
-        ("reviews", "reviews.csv")
-    ]
+def main():
+    target = config.DEFAULT_DB_PATH
+    if target.exists() and "--force" not in sys.argv:
+        print(f"{target} already exists (use --force to rebuild).")
+        return
+    started = time.perf_counter()
+    counts = build_database(target)
+    print(f"Built {target} in {time.perf_counter() - started:.2f}s")
+    for table, n in counts.items():
+        print(f" - {table}: {n:,} rows")
 
-    for table_name, csv_file in tables:
-        csv_path = os.path.join(data_dir, csv_file)
-        if not os.path.exists(csv_path):
-            print(f"Warning: CSV file {csv_path} not found. Skipping table {table_name}.")
-            continue
 
-        print(f"Seeding table '{table_name}' from {csv_path}...")
-        df = pd.read_csv(csv_path)
-
-        # Append to SQL table
-        # If SQLite tables already exist, we want to overwrite/reseed, so we clear them first.
-        cursor.execute(f"DELETE FROM {table_name}")
-        df.to_sql(table_name, conn, if_exists='append', index=False)
-        print(f"Successfully seeded {len(df)} records into '{table_name}'.")
-
-    # Verify counts
-    print("\nVerification - Table Counts:")
-    for table_name, _ in tables:
-        cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
-        count = cursor.fetchone()[0]
-        print(f" - {table_name}: {count} records")
-
-    conn.commit()
-    conn.close()
-    print("\nDatabase seeding completed successfully.")
-
-if __name__ == '__main__':
-    seed_database()
+if __name__ == "__main__":
+    main()

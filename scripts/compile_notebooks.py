@@ -187,8 +187,14 @@ plt.show()"""))
 
     return nb
 
+SUPERSEDED_NOTE = ("> **Superseded for serving.** This notebook is the original exploration. The models the API serves are "
+                   "trained by `scripts/train_models.py` (leak-free features, time-based splits, measured metrics in "
+                   "`backend/app/ml_models/model_card.json`).")
+
+
 def compile_demand_notebook():
     nb = new_notebook()
+    nb.cells.append(new_markdown_cell(SUPERSEDED_NOTE))
     
     nb.cells.append(new_markdown_cell("# Phase 6: Customer Demand Prediction\nThis notebook builds and compares predictive ML models (Linear Regression vs. Random Forest Regressor) to estimate expected hourly demand for shops."))
     
@@ -316,6 +322,7 @@ print("Saved demand_model.pkl successfully.")"""))
 
 def compile_waiting_notebook():
     nb = new_notebook()
+    nb.cells.append(new_markdown_cell(SUPERSEDED_NOTE))
     
     nb.cells.append(new_markdown_cell("# Phase 6: Waiting Time & No-Show Predictions\nThis notebook trains and evaluates a Random Forest Regressor to predict customer waiting time in minutes, and a Logistic Regression classifier to predict the no-show probability of appointments."))
     
