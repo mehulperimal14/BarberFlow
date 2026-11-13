@@ -32,5 +32,6 @@ backend/app/live.db
 *.building
 *.db-journal
 
-# Vercel CLI state
+# Vercel CLI state and local env files (never commit secrets)
 .vercel
+.env*
