@@ -1,178 +1,101 @@
-const API_BASE = "http://127.0.0.1:8000/api";
+// Same-origin "/api" in production (Vercel serves the SPA and the FastAPI function together).
+// In development Vite proxies /api to http://127.0.0.1:8000 (see vite.config.js).
+// VITE_API_BASE_URL can point the UI at a separately hosted backend if ever needed.
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
 
-export async function fetchShops(filters = {}) {
-  const params = new URLSearchParams();
-  if (filters.search) params.append("search", filters.search);
-  if (filters.area) params.append("area", filters.area);
-  if (filters.min_rating) params.append("min_rating", filters.min_rating);
-  if (filters.shop_type) params.append("shop_type", filters.shop_type);
-  if (filters.user_lat) params.append("user_lat", filters.user_lat);
-  if (filters.user_lon) params.append("user_lon", filters.user_lon);
-  
-  const res = await fetch(`${API_BASE}/shops?${params.toString()}`);
-  if (!res.ok) throw new Error("Failed to fetch shops");
-  return res.json();
-}
-
-export async function fetchShopDetail(shopId) {
-  const res = await fetch(`${API_BASE}/shops/${shopId}`);
-  if (!res.ok) throw new Error("Failed to fetch shop details");
-  return res.json();
-}
-
-export async function fetchRecommendations(weights = {}) {
-  const params = new URLSearchParams();
-  if (weights.weight_rating !== undefined) params.append("weight_rating", weights.weight_rating);
-  if (weights.weight_wait !== undefined) params.append("weight_wait", weights.weight_wait);
-  if (weights.weight_distance !== undefined) params.append("weight_distance", weights.weight_distance);
-  if (weights.weight_price !== undefined) params.append("weight_price", weights.weight_price);
-  
-  const res = await fetch(`${API_BASE}/shops/recommendations?${params.toString()}`);
-  if (!res.ok) throw new Error("Failed to fetch recommendations");
-  return res.json();
-}
-
-export async function fetchQueue(shopId) {
-  const res = await fetch(`${API_BASE}/queue/${shopId}`);
-  if (!res.ok) throw new Error("Failed to fetch queue");
-  return res.json();
-}
-
-export async function joinQueue(shopId, customerId, serviceId) {
-  const res = await fetch(`${API_BASE}/queue/${shopId}/join`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ customer_id: customerId, service_id: serviceId }),
-  });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.detail || "Failed to join queue");
+export class ApiError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.status = status;
   }
-  return res.json();
 }
 
-export async function skipQueue(visitId) {
-  const res = await fetch(`${API_BASE}/queue/${visitId}/skip`, {
-    method: "DELETE",
-  });
-  if (!res.ok) throw new Error("Failed to skip queue record");
-  return res.json();
-}
-
-export async function fetchAppointments(filters = {}) {
-  const params = new URLSearchParams();
-  if (filters.shop_id) params.append("shop_id", filters.shop_id);
-  if (filters.customer_id) params.append("customer_id", filters.customer_id);
-  
-  const res = await fetch(`${API_BASE}/appointments?${params.toString()}`);
-  if (!res.ok) throw new Error("Failed to fetch appointments");
-  return res.json();
-}
-
-export async function bookAppointment(customerId, shopId, serviceId, date, time) {
-  const res = await fetch(`${API_BASE}/appointments`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      customer_id: customerId,
-      shop_id: shopId,
-      service_id: serviceId,
-      appointment_date: date,
-      appointment_time: time
-    }),
-  });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.detail || "Failed to book appointment");
+function errorMessage(body, status) {
+  const detail = body && body.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail) && detail.length) {
+    // FastAPI/Pydantic validation errors (HTTP 422)
+    return detail.map(d => `${(d.loc || []).slice(1).join('.') || 'input'}: ${d.msg}`).join('; ');
   }
-  return res.json();
+  return `Request failed (HTTP ${status})`;
 }
 
-export async function fetchMarketOverview(area = "", shopId = "") {
-  const params = new URLSearchParams();
-  if (area) params.append("area", area);
-  if (shopId) params.append("shop_id", shopId);
-  const res = await fetch(`${API_BASE}/analytics/overview?${params.toString()}`);
-  if (!res.ok) throw new Error("Failed to fetch market overview");
-  return res.json();
+async function request(path, { method = 'GET', body, params, signal } = {}) {
+  const qs = params
+    ? '?' + new URLSearchParams(
+        Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')
+      ).toString()
+    : '';
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${path}${qs === '?' ? '' : qs}`, {
+      method,
+      signal,
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (err) {
+    if (err.name === 'AbortError') throw err;
+    throw new ApiError('Cannot reach the BarberFlow API. Is the backend running?', 0);
+  }
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = null; }
+  if (!res.ok) throw new ApiError(errorMessage(data, res.status), res.status);
+  return data;
 }
 
-export async function fetchDemandCharts(shopId = "") {
-  const params = new URLSearchParams();
-  if (shopId) params.append("shop_id", shopId);
-  const res = await fetch(`${API_BASE}/analytics/demand?${params.toString()}`);
-  if (!res.ok) throw new Error("Failed to fetch demand analytics");
-  return res.json();
-}
+// Meta
+export const fetchMeta = () => request('/meta');
+export const fetchModelCard = () => request('/predictions/model-card');
 
-export async function fetchWaitingTimeCharts(shopId = "") {
-  const params = new URLSearchParams();
-  if (shopId) params.append("shop_id", shopId);
-  const res = await fetch(`${API_BASE}/analytics/waiting-time?${params.toString()}`);
-  if (!res.ok) throw new Error("Failed to fetch wait time analytics");
-  return res.json();
-}
+// Shops & discovery
+export const fetchShops = (filters = {}) => request('/shops', { params: filters });
+export const fetchShopDetail = (shopId) => request(`/shops/${shopId}`);
+export const fetchRecommendations = (weights = {}) => request('/shops/recommendations', { params: weights });
 
-export async function fetchShopPerformance() {
-  const res = await fetch(`${API_BASE}/analytics/shop-performance`);
-  if (!res.ok) throw new Error("Failed to fetch shop performance");
-  return res.json();
-}
+// Live queue
+export const fetchQueue = (shopId) => request(`/queue/${shopId}`);
+export const fetchSimulatedDay = (shopId) => request(`/queue/${shopId}/history`);
+export const joinQueue = (shopId, customerId, serviceId, source = 'customer_app') =>
+  request(`/queue/${shopId}/join`, { method: 'POST', body: { customer_id: customerId, service_id: serviceId, source } });
+export const updateQueueEntry = (entryId, action) =>
+  request(`/queue/entries/${entryId}`, { method: 'PATCH', body: { action } });
 
-export async function fetchLocationOpportunity() {
-  const res = await fetch(`${API_BASE}/analytics/location`);
-  if (!res.ok) throw new Error("Failed to fetch location analytics");
-  return res.json();
-}
-
-export async function fetchShopAnalytics(shopId) {
-  const res = await fetch(`${API_BASE}/analytics/shop/${shopId}`);
-  if (!res.ok) throw new Error("Failed to fetch shop specific analytics");
-  return res.json();
-}
-
-export async function predictDemand(shopId, hour, dayOfWeek, month) {
-  const res = await fetch(`${API_BASE}/predictions/demand`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      shop_id: shopId,
-      hour: parseInt(hour),
-      day_of_week: parseInt(dayOfWeek),
-      month: parseInt(month)
-    }),
+// Appointments
+export const bookAppointment = (customerId, shopId, serviceId, date, time) =>
+  request('/appointments', {
+    method: 'POST',
+    body: { customer_id: customerId, shop_id: shopId, service_id: serviceId, appointment_date: date, appointment_time: time },
   });
-  if (!res.ok) throw new Error("Failed to predict demand");
-  return res.json();
-}
+export const fetchLiveBookings = (shopId) => request('/bookings', { params: { shop_id: shopId } });
 
-export async function predictWaitTime(shopId, queueLen, occupied, avail, hour, day) {
-  const res = await fetch(`${API_BASE}/predictions/waiting-time`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      shop_id: shopId,
-      queue_length: parseInt(queueLen),
-      occupied_seats: parseInt(occupied),
-      available_seats: parseInt(avail),
-      hour: parseInt(hour),
-      day_of_week: parseInt(day)
-    }),
-  });
-  if (!res.ok) throw new Error("Failed to predict waiting time");
-  return res.json();
-}
+// Analytics
+export const fetchMarketOverview = (area = '', shopId = '') =>
+  request('/analytics/overview', { params: { area, shop_id: shopId } });
+export const fetchDemandCharts = (shopId = '', area = '') =>
+  request('/analytics/demand', { params: { shop_id: shopId, area } });
+export const fetchWaitingTimeCharts = (shopId = '', area = '') =>
+  request('/analytics/waiting-time', { params: { shop_id: shopId, area } });
+export const fetchSatisfaction = (area = '') => request('/analytics/satisfaction', { params: { area } });
+export const fetchShopPerformance = () => request('/analytics/shop-performance');
+export const fetchLocationOpportunity = () => request('/analytics/location');
+export const fetchShopAnalytics = (shopId) => request(`/analytics/shop/${shopId}`);
 
-export async function predictNoShow(customerId, hour, lagDays) {
-  const res = await fetch(`${API_BASE}/predictions/no-show`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      customer_id: customerId,
-      hour: parseInt(hour),
-      booking_lag_days: parseFloat(lagDays)
-    }),
+// Predictions
+export const predictDemand = (shopId, hour, dayOfWeek) =>
+  request('/predictions/demand', { method: 'POST', body: { shop_id: +shopId, hour: +hour, day_of_week: +dayOfWeek } });
+export const predictWaitTime = (shopId, queueLen, occupied, hour, day) =>
+  request('/predictions/waiting-time', {
+    method: 'POST',
+    body: { shop_id: +shopId, queue_length: +queueLen, occupied_seats: +occupied, hour: +hour, day_of_week: +day },
   });
-  if (!res.ok) throw new Error("Failed to predict no-show probability");
-  return res.json();
-}
+export const predictNoShow = (customerId, hour, lagDays) =>
+  request('/predictions/no-show', {
+    method: 'POST',
+    body: { customer_id: +customerId, hour: +hour, booking_lag_days: +lagDays },
+  });
+
+// Data explorer
+export const fetchTable = (table, limit = 25, offset = 0) =>
+  request(`/explorer/${table}`, { params: { limit, offset } });

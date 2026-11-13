@@ -1,347 +1,194 @@
-import React, { useState, useEffect } from 'react';
-import { fetchShops, predictDemand, predictWaitTime, predictNoShow } from '../services/api';
-import { BrainCircuit, Clock, HelpCircle, Activity, Sparkles, CheckSquare, RefreshCw, BarChart2 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { fetchShops, fetchModelCard, predictDemand, predictWaitTime, predictNoShow } from '../services/api';
+import { BrainCircuit, FlaskConical } from 'lucide-react';
+import { Card, DAY_NAMES, Loading, Notice, buttonGold, hourLabel, selectClass } from '../components/ui';
+
+const HOURS = Array.from({ length: 13 }, (_, i) => i + 8);
+const STATUS_STYLE = {
+  baseline: 'bg-yellow-950/40 text-yellow-400 border-yellow-800',
+  'good on simulated data': 'bg-emerald-950/40 text-emerald-400 border-emerald-800',
+};
+
+function Metrics({ card }) {
+  if (!card) return null;
+  const m = card.test_metrics || {};
+  const entries = Object.entries(m).map(([k, v]) => [k.replace(/_/g, ' ').replace('roc auc', 'ROC-AUC').replace(/\br2\b/, 'R²').replace(/\bmae\b/, 'MAE').replace(/\brmse\b/, 'RMSE'), v]);
+  return (
+    <div className="text-[11px] text-gray-500 space-y-1 border-t border-brand-850 pt-3">
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        {entries.map(([k, v]) => <span key={k}>{k}: <b className="text-gray-300">{v}</b></span>)}
+      </div>
+      <p>{card.split}</p>
+    </div>
+  );
+}
+
+function ModelHeader({ title, card }) {
+  const style = STATUS_STYLE[card?.status] || 'bg-red-950/40 text-red-400 border-red-800';
+  return (
+    <div className="space-y-1.5">
+      <div className="flex justify-between items-start gap-2">
+        <h3 className="font-extrabold text-white">{title}</h3>
+        {card && <span className={`text-[10px] border px-2 py-0.5 rounded-full font-bold whitespace-nowrap ${style}`}>{card.status}</span>}
+      </div>
+      {card && <p className="text-[11px] text-accent-gold">{card.algorithm}</p>}
+    </div>
+  );
+}
+
+const Field = ({ label, children }) => (
+  <label className="block text-[10px] text-gray-500 font-bold uppercase space-y-1"><span>{label}</span>{children}</label>
+);
 
 export default function PredictionsView() {
   const [shops, setShops] = useState([]);
-  
-  // Demand Form
-  const [demandShop, setDemandShop] = useState(1);
-  const [demandHour, setDemandHour] = useState(17);
-  const [demandDay, setDemandDay] = useState(5); // Saturday
-  const [demandMonth, setDemandMonth] = useState(8);
-  const [demandResult, setDemandResult] = useState(null);
-
-  // Wait Time Form
-  const [waitShop, setWaitShop] = useState(1);
-  const [waitQueue, setWaitQueue] = useState(3);
-  const [waitOccupied, setWaitOccupied] = useState(2);
-  const [waitAvail, setWaitAvail] = useState(1);
-  const [waitHour, setWaitHour] = useState(17);
-  const [waitDay, setWaitDay] = useState(5);
-  const [waitResult, setWaitResult] = useState(null);
-
-  // No Show Form
-  const [nsCust, setNsCust] = useState(120);
-  const [nsHour, setNsHour] = useState(14);
-  const [nsLag, setNsLag] = useState(3.5);
-  const [nsResult, setNsResult] = useState(null);
-
-  const [loading, setLoading] = useState(false);
+  const [card, setCard] = useState(null);
   const [error, setError] = useState('');
+  const [demand, setDemand] = useState({ shop: 1, hour: 17, day: 5 });
+  const [wait, setWait] = useState({ shop: 1, queue: 3, occupied: 1, hour: 17, day: 5 });
+  const [ns, setNs] = useState({ customer: 120, hour: 10, lag: 3.5 });
+  const [results, setResults] = useState({});
+  const [busy, setBusy] = useState('');
 
   useEffect(() => {
-    loadShops();
+    Promise.all([fetchShops(), fetchModelCard()])
+      .then(([s, c]) => { setShops(s); setCard(c); })
+      .catch(err => setError(err.message));
   }, []);
 
-  const loadShops = async () => {
-    try {
-      const data = await fetchShops();
-      setShops(data);
-      if (data.length > 0) {
-        setDemandShop(data[0].shop_id);
-        setWaitShop(data[0].shop_id);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handlePredictDemand = async (e) => {
+  const run = (key, fn) => async (e) => {
     e.preventDefault();
-    setLoading(true);
-    try {
-      const res = await predictDemand(demandShop, demandHour, demandDay, demandMonth);
-      setDemandResult(res);
-    } catch (err) {
-      setError('Error generating demand prediction.');
-    } finally {
-      setLoading(false);
-    }
+    setBusy(key);
+    setResults(r => ({ ...r, [key]: null }));
+    try { const ok = await fn(); setResults(r => ({ ...r, [key]: { ok } })); }
+    catch (err) { setResults(r => ({ ...r, [key]: { error: err.message } })); }
+    finally { setBusy(''); }
   };
 
-  const handlePredictWait = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const res = await predictWaitTime(waitShop, waitQueue, waitOccupied, waitAvail, waitHour, waitDay);
-      setWaitResult(res);
-    } catch (err) {
-      setError('Error generating wait time prediction.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePredictNoShow = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const res = await predictNoShow(nsCust, nsHour, nsLag);
-      setNsResult(res);
-    } catch (err) {
-      setError('Error generating no-show prediction.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getDayName = (dayNum) => {
-    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-    return days[dayNum] || "Unknown";
-  };
+  const shopSelect = (value, onChange) => (
+    <select value={value} onChange={(e) => onChange(+e.target.value)} className={`w-full ${selectClass}`}>
+      {shops.map(s => <option key={s.shop_id} value={s.shop_id}>{s.shop_name} ({s.number_of_seats} seats, {s.number_of_barbers} barbers)</option>)}
+    </select>
+  );
+  const hourSelect = (value, onChange) => (
+    <select value={value} onChange={(e) => onChange(+e.target.value)} className={`w-full ${selectClass}`}>
+      {HOURS.map(h => <option key={h} value={h}>{hourLabel(h)}</option>)}
+    </select>
+  );
+  const daySelect = (value, onChange) => (
+    <select value={value} onChange={(e) => onChange(+e.target.value)} className={`w-full ${selectClass}`}>
+      {DAY_NAMES.map((d, i) => <option key={d} value={i}>{d}</option>)}
+    </select>
+  );
+  const models = card?.models || {};
+  const selectedWaitShop = shops.find(s => s.shop_id === wait.shop);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="py-4 border-b border-brand-850">
-        <h1 className="text-3xl font-extrabold text-white flex items-center gap-2">
-          <BrainCircuit className="text-accent-gold" /> ML Predictive Analytics
-        </h1>
-        <p className="text-gray-400 text-sm">
-          Evaluate shop metrics using predictive model checkpoints. Select details to run live inference.
-        </p>
+      <div className="border-b border-brand-850 pb-4">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-white flex items-center gap-2"><BrainCircuit className="text-accent-gold" /> ML Predictions</h1>
+        <p className="text-gray-400 text-sm">Live inference from the three trained models. Every metric shown is measured on held-out data and read from the model card.</p>
       </div>
+      {error && <Notice tone="error">{error}</Notice>}
+      {!card && !error ? <Loading label="Loading models…" /> : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card className="flex flex-col justify-between">
+            <ModelHeader title="Hourly demand" card={models.demand} />
+            <p className="text-xs text-gray-400">Expected arrivals at a shop for a given hour and weekday.</p>
+            <form onSubmit={run('demand', () => predictDemand(demand.shop, demand.hour, demand.day))} className="space-y-3">
+              <Field label="Shop">{shopSelect(demand.shop, v => setDemand({ ...demand, shop: v }))}</Field>
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Hour">{hourSelect(demand.hour, v => setDemand({ ...demand, hour: v }))}</Field>
+                <Field label="Day">{daySelect(demand.day, v => setDemand({ ...demand, day: v }))}</Field>
+              </div>
+              <button disabled={busy === 'demand'} className={`w-full py-2 text-xs ${buttonGold}`}>Predict demand</button>
+            </form>
+            <Result r={results.demand} render={(d) => (
+              <>
+                <Big label="Predicted arrivals" value={`${d.predicted_customers} / hour`} />
+                <p className="text-[11px] text-gray-500">Historical average for this slot: {d.features.historical_average_demand}{!d.shop_open_at_this_hour && ' · shop closed at this hour'}</p>
+              </>)} />
+            <Metrics card={models.demand} />
+          </Card>
 
-      {error && (
-        <div className="bg-red-950/40 border border-red-800 text-red-400 p-3 rounded-lg text-xs">
-          {error}
+          <Card className="flex flex-col justify-between">
+            <ModelHeader title="Walk-in waiting time" card={models.waiting_time} />
+            <p className="text-xs text-gray-400">Minutes a new walk-in would wait, given the queue and busy chairs.</p>
+            <form onSubmit={run('wait', () => predictWaitTime(wait.shop, wait.queue, wait.occupied, wait.hour, wait.day))} className="space-y-3">
+              <Field label="Shop">{shopSelect(wait.shop, v => setWait({ ...wait, shop: v, occupied: 0 }))}</Field>
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="People waiting">
+                  <input type="number" min={0} max={100} value={wait.queue} onChange={(e) => setWait({ ...wait, queue: e.target.value })} className={`w-full ${selectClass}`} />
+                </Field>
+                <Field label={`Busy chairs (of ${selectedWaitShop?.number_of_seats ?? '?'})`}>
+                  <input type="number" min={0} max={selectedWaitShop?.number_of_seats ?? 10} value={wait.occupied} onChange={(e) => setWait({ ...wait, occupied: e.target.value })} className={`w-full ${selectClass}`} />
+                </Field>
+                <Field label="Hour">{hourSelect(wait.hour, v => setWait({ ...wait, hour: v }))}</Field>
+                <Field label="Day">{daySelect(wait.day, v => setWait({ ...wait, day: v }))}</Field>
+              </div>
+              <button disabled={busy === 'wait'} className={`w-full py-2 text-xs ${buttonGold}`}>Predict wait</button>
+            </form>
+            <Result r={results.wait} render={(d) => (
+              <>
+                <Big label="Predicted wait" value={`${d.predicted_waiting_time_minutes} min`} />
+                <p className="text-[11px] text-gray-500">Typical historical wait at this hour and day: {d.historical_typical_wait_minutes ?? '—'} min</p>
+              </>)} />
+            <Metrics card={models.waiting_time} />
+          </Card>
+
+          <Card className="flex flex-col justify-between">
+            <ModelHeader title="Appointment no-show risk" card={models.no_show} />
+            <Notice tone="warn">
+              <span className="inline-flex items-center gap-1 font-bold"><FlaskConical size={13} /> Experimental.</span>{' '}
+              In the simulated data no-shows are random; the model only picks up that missed bookings were
+              given random hours. Without the hour feature it is no better than chance.
+            </Notice>
+            <form onSubmit={run('ns', () => predictNoShow(ns.customer, ns.hour, ns.lag))} className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Customer ID">
+                  <input type="number" min={1} max={5000} value={ns.customer} onChange={(e) => setNs({ ...ns, customer: e.target.value })} className={`w-full ${selectClass}`} />
+                </Field>
+                <Field label="Booked days ahead">
+                  <input type="number" min={0} max={60} step={0.5} value={ns.lag} onChange={(e) => setNs({ ...ns, lag: e.target.value })} className={`w-full ${selectClass}`} />
+                </Field>
+                <Field label="Appointment hour">{hourSelect(ns.hour, v => setNs({ ...ns, hour: v }))}</Field>
+              </div>
+              <button disabled={busy === 'ns'} className={`w-full py-2 text-xs ${buttonGold}`}>Assess risk</button>
+            </form>
+            <Result r={results.ns} render={(d) => (
+              <>
+                <Big label="No-show probability" value={`${(d.no_show_probability * 100).toFixed(1)}% · ${d.risk_tier}`} />
+                <p className="text-[11px] text-gray-500">Base rate {(d.base_rate * 100).toFixed(1)}%. Low &lt; {(d.risk_tier_thresholds.low_below * 100).toFixed(1)}%, High ≥ {(d.risk_tier_thresholds.high_at_or_above * 100).toFixed(1)}%.</p>
+              </>)} />
+            <Metrics card={models.no_show} />
+          </Card>
         </div>
       )}
+      {card && (
+        <Card title="Methodology" subtitle={`Trained ${card.trained_at} by ${card.training_script}`}>
+          <ul className="text-xs text-gray-400 space-y-1.5 list-disc pl-4">
+            <li>Demand and waiting time use a <b className="text-gray-200">time-based split</b>: the last 20% of dates are held out, so the models never train on the future.</li>
+            <li>Demand's historical-average feature is computed from <b className="text-gray-200">training dates only</b>. The model is chosen on a validation window; a linear model matched the forest, so the simpler one is served.</li>
+            <li>Models are exported from scikit-learn to JSON and served without pickle; exported predictions match scikit-learn to within {Math.max(...Object.values(card.export_check_max_abs_diff || { a: 0 })).toExponential(0)}.</li>
+            <li>All data is simulated (see the data explorer), so these results show method, not real-world accuracy.</li>
+          </ul>
+        </Card>
+      )}
+    </div>
+  );
+}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Model 1: Demand Prediction */}
-        <div className="glass-card rounded-xl p-5 space-y-4 flex flex-col justify-between">
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <h3 className="font-extrabold text-white text-md">Client Demand Forecaster</h3>
-              <span className="text-[10px] bg-brand-800 border border-brand-700 text-accent-gold px-2 py-0.5 rounded-full font-bold">Random Forest</span>
-            </div>
-            <p className="text-xs text-gray-400 leading-relaxed">
-              Predicts the expected client arrivals at a specific shop, hour, weekday, and month.
-            </p>
-            
-            <form onSubmit={handlePredictDemand} className="space-y-3 pt-2">
-              <div>
-                <label className="block text-[10px] text-gray-500 font-bold uppercase mb-1">Select Shop</label>
-                <select 
-                  value={demandShop} 
-                  onChange={(e) => setDemandShop(parseInt(e.target.value))}
-                  className="w-full bg-brand-900 border border-brand-700 rounded-lg p-2 text-xs text-white focus:outline-none"
-                >
-                  {shops.map(s => <option key={s.shop_id} value={s.shop_id}>{s.shop_name}</option>)}
-                </select>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] text-gray-500 font-bold uppercase mb-1">Hour of Day</label>
-                  <select 
-                    value={demandHour} 
-                    onChange={(e) => setDemandHour(parseInt(e.target.value))}
-                    className="w-full bg-brand-900 border border-brand-700 rounded-lg p-2 text-xs text-white focus:outline-none"
-                  >
-                    {Array.from({ length: 13 }, (_, i) => i + 8).map(h => (
-                      <option key={h} value={h}>{h === 12 ? 12 : h % 12} {h >= 12 ? 'PM' : 'AM'}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] text-gray-500 font-bold uppercase mb-1">Day of Week</label>
-                  <select 
-                    value={demandDay} 
-                    onChange={(e) => setDemandDay(parseInt(e.target.value))}
-                    className="w-full bg-brand-900 border border-brand-700 rounded-lg p-2 text-xs text-white focus:outline-none"
-                  >
-                    <option value={0}>Monday</option>
-                    <option value={1}>Tuesday</option>
-                    <option value={2}>Wednesday</option>
-                    <option value={3}>Thursday</option>
-                    <option value={4}>Friday</option>
-                    <option value={5}>Saturday</option>
-                    <option value={6}>Sunday</option>
-                  </select>
-                </div>
-              </div>
+function Result({ r, render }) {
+  if (!r) return null;
+  if (r.error) return <Notice tone="error">{r.error}</Notice>;
+  return <div className="bg-brand-900/60 p-3 border border-brand-850 rounded-xl space-y-1">{render(r.ok)}</div>;
+}
 
-              <button 
-                type="submit" 
-                className="w-full bg-accent-gold text-brand-900 font-bold py-2 rounded-lg text-xs hover:bg-accent-goldHover transition-accent mt-2"
-              >
-                Estimate Demand
-              </button>
-            </form>
-          </div>
-
-          {demandResult && (
-            <div className="bg-brand-900/60 p-4 border border-brand-850 rounded-xl space-y-2 mt-4">
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-400">Predicted Demand:</span>
-                <span className="text-lg font-black text-white">{demandResult.predicted_customers} customers/hr</span>
-              </div>
-              <div className="text-[10px] text-gray-500 space-y-1">
-                <div className="flex justify-between"><span>Historical Hour Avg:</span> <span>{demandResult.features.historical_average_demand}</span></div>
-                <div className="flex justify-between"><span>Model Test MAE:</span> <span>0.45 customers</span></div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Model 2: Waiting Time Prediction */}
-        <div className="glass-card rounded-xl p-5 space-y-4 flex flex-col justify-between">
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <h3 className="font-extrabold text-white text-md">Wait-Time Estimator</h3>
-              <span className="text-[10px] bg-brand-800 border border-brand-700 text-accent-gold px-2 py-0.5 rounded-full font-bold">Random Forest</span>
-            </div>
-            <p className="text-xs text-gray-400 leading-relaxed">
-              Estimates actual waiting time (minutes) for walk-ins using active seats and queue congestion.
-            </p>
-            
-            <form onSubmit={handlePredictWait} className="space-y-2 pt-2">
-              <div>
-                <label className="block text-[10px] text-gray-500 font-bold uppercase mb-1">Select Shop</label>
-                <select 
-                  value={waitShop} 
-                  onChange={(e) => setWaitShop(parseInt(e.target.value))}
-                  className="w-full bg-brand-900 border border-brand-700 rounded-lg p-2 text-xs text-white focus:outline-none"
-                >
-                  {shops.map(s => <option key={s.shop_id} value={s.shop_id}>{s.shop_name}</option>)}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block text-[9px] text-gray-500 font-bold uppercase mb-1">Queue Size</label>
-                  <input 
-                    type="number" 
-                    value={waitQueue} 
-                    onChange={(e) => setWaitQueue(parseInt(e.target.value))}
-                    className="w-full bg-brand-900 border border-brand-700 rounded-lg p-2 text-xs text-white focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[9px] text-gray-500 font-bold uppercase mb-1">Busy Chairs</label>
-                  <input 
-                    type="number" 
-                    value={waitOccupied} 
-                    onChange={(e) => setWaitOccupied(parseInt(e.target.value))}
-                    className="w-full bg-brand-900 border border-brand-700 rounded-lg p-2 text-xs text-white focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[9px] text-gray-500 font-bold uppercase mb-1">Open Chairs</label>
-                  <input 
-                    type="number" 
-                    value={waitAvail} 
-                    onChange={(e) => setWaitAvail(parseInt(e.target.value))}
-                    className="w-full bg-brand-900 border border-brand-700 rounded-lg p-2 text-xs text-white focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <button 
-                type="submit" 
-                className="w-full bg-accent-gold text-brand-900 font-bold py-2 rounded-lg text-xs hover:bg-accent-goldHover transition-accent mt-2"
-              >
-                Estimate Wait Time
-              </button>
-            </form>
-          </div>
-
-          {waitResult && (
-            <div className="bg-brand-900/60 p-4 border border-brand-850 rounded-xl space-y-2 mt-4">
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-400">Estimated Wait:</span>
-                <span className="text-lg font-black text-white">{waitResult.predicted_waiting_time_minutes} minutes</span>
-              </div>
-              <p className="text-[10px] text-gray-500 italic leading-snug">
-                {waitResult.model_metadata.model_explanation}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Model 3: No-Show Probability */}
-        <div className="glass-card rounded-xl p-5 space-y-4 flex flex-col justify-between">
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <h3 className="font-extrabold text-white text-md">No-Show Risk Assessor</h3>
-              <span className="text-[10px] bg-brand-800 border border-brand-700 text-accent-gold px-2 py-0.5 rounded-full font-bold">Logistic Reg.</span>
-            </div>
-            <p className="text-xs text-gray-400 leading-relaxed">
-              Evaluates the no-show/cancellation probability using booking lag and historical client feedback ratings.
-            </p>
-            
-            <form onSubmit={handlePredictNoShow} className="space-y-3 pt-2">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] text-gray-500 font-bold uppercase mb-1">Customer ID</label>
-                  <input 
-                    type="number" 
-                    value={nsCust} 
-                    onChange={(e) => setNsCust(parseInt(e.target.value))}
-                    className="w-full bg-brand-900 border border-brand-700 rounded-lg p-2 text-xs text-white focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-gray-500 font-bold uppercase mb-1">Booking Lag (Days)</label>
-                  <input 
-                    type="number" 
-                    step="0.1" 
-                    value={nsLag} 
-                    onChange={(e) => setNsLag(parseFloat(e.target.value))}
-                    className="w-full bg-brand-900 border border-brand-700 rounded-lg p-2 text-xs text-white focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <button 
-                type="submit" 
-                className="w-full bg-accent-gold text-brand-900 font-bold py-2 rounded-lg text-xs hover:bg-accent-goldHover transition-accent mt-2"
-              >
-                Evaluate Risk
-              </button>
-            </form>
-          </div>
-
-          {nsResult && (
-            <div className="bg-brand-900/60 p-4 border border-brand-850 rounded-xl space-y-2 mt-4">
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-400">No-show Probability:</span>
-                <span className="text-lg font-black text-white">{(nsResult.no_show_probability * 100).toFixed(1)}%</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-400">Risk Assessment:</span>
-                <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${nsResult.risk_tier === 'High' ? 'bg-red-950/40 text-red-400 border border-red-800' : nsResult.risk_tier === 'Medium' ? 'bg-yellow-950/40 text-yellow-500 border border-yellow-800' : 'bg-emerald-950/40 text-emerald-400 border border-emerald-800'}`}>
-                  {nsResult.risk_tier} Risk
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-
-      </div>
-
-      {/* Analytical Methodology Context */}
-      <div className="bg-brand-850/20 border border-brand-800 p-5 rounded-xl space-y-3">
-        <h3 className="text-lg font-bold text-accent-gold flex items-center gap-1.5"><Sparkles size={18} /> Model Methodology & Validation</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-gray-400 leading-relaxed">
-          <div className="space-y-1">
-            <span className="font-bold text-white block">Time-Series Ordering Splits</span>
-            <p>To prevent future data leakage (training on tomorrow to predict today), demand models were split based on historical date indices (first 80% date sequence train, subsequent 20% test).</p>
-          </div>
-          <div className="space-y-1">
-            <span className="font-bold text-white block">Explainable Feature Engineering</span>
-            <p>The demand forest uses historical hourly aggregation ratios alongside live capacity metrics as primary weights, optimizing R² scores above 0.81.</p>
-          </div>
-          <div className="space-y-1">
-            <span className="font-bold text-white block">Simulated Feedback Loop</span>
-            <p>Real-time queue parameters (occupied chairs, arrivals) are updated dynamically inside the database, improving estimation accuracy under queue congestion.</p>
-          </div>
-        </div>
-      </div>
+function Big({ label, value }) {
+  return (
+    <div className="flex justify-between items-center gap-2">
+      <span className="text-xs text-gray-400">{label}</span>
+      <span className="text-lg font-black text-white text-right">{value}</span>
     </div>
   );
 }
