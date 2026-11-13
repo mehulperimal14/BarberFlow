@@ -1,46 +1,40 @@
 # Business Insights Report: BarberFlow
 
-This report outlines key operational findings extracted from the **BarberFlow** database.
+Findings from the **simulated** BarberFlow dataset: 50 shops, 5,000 customers, 64,991 visits, 2026-06-01 to 2026-08-30.
+Every number below can be reproduced with `sql/analysis_queries.sql` or the `/api/analytics/*` endpoints.
+Because the data comes from `scripts/generate_data.py`, these insights describe the simulated market. They demonstrate the analysis method, not real-world behaviour.
 
 ---
 
-## Insight 1: The Evening Rush & Weekday Slack
-* **Finding**: Customer traffic is highly concentrated in specific temporal windows, creating severe bottlenecks followed by long periods of idle capacity.
-* **Evidence**:
-  * **Hourly Peak**: The hours between **4:00 PM and 7:00 PM** account for **48%** of total daily arrivals.
-  * **Weekly Peak**: Saturdays and Fridays account for **45.5%** of weekly customer volume.
-  * **Slack Period**: Monday and Tuesday mornings (9:00 AM - 12:00 PM) have an average seat utilization of **under 15%**.
-* **Business Impact**: Fixed overhead costs (rent, base barber salaries) are wasted during slack hours, while potential sales are lost during peak hours because customers walk out due to long waits.
-* **Recommendation**: Implement **off-peak price promotions** (e.g., "15% off walk-ins on Tuesday mornings") and schedule **barber shifts dynamically** to align with peak evening hours.
+## Insight 1: Demand is concentrated in evenings and weekends
+* **Evidence**
+  * 16:00–18:59 accounts for **58.7%** of all arrivals (about 19.5% in each of those hours, query #4).
+  * Saturday has **14,513** visits against **5,493** on Monday (2.6×). Friday to Sunday is **57.6%** of the volume (query #5).
+  * The average wait rises from **5.4 min on Mondays to 33.0 min on Saturdays**, and from about 0.5 min at 08:00 to about 55 min after 19:00.
+* **Recommendation:** schedule barbers by hour and weekday. Use off-peak offers on Monday and Tuesday mornings to shift flexible demand.
 
----
+## Insight 2: The average wait hides a very skewed distribution
+* **Evidence**
+  * The mean wait is **19.0 min**, but the **median is 0 min**. **76.4%** of visits have no wait, while **14.9%** wait more than 30 minutes (p90 = 62 min).
+  * The 16 *Bottleneck* shops (2–3 seats) average **52.7 min**. Every other shop type averages ≤ 3.1 min.
+* **Recommendation:** report the median and p90 wait, not just the mean. Target capacity fixes at the bottleneck shops, adding a barber at peak hours before adding chairs, rather than making market-wide changes.
 
-## Insight 2: The Non-Linear Cost of Waiting (Customer Churn)
-* **Finding**: Waiting time has a non-linear relationship with customer satisfaction reviews.
-* **Evidence**:
-  * For wait times **under 10 minutes**, the average review rating is **4.75 stars**.
-  * For wait times between **11 and 20 minutes**, the average review rating falls slightly to **4.20 stars**.
-  * For wait times exceeding **25 minutes**, the average rating drops precipitously to **2.40 stars**.
-* **Business Impact**: Customer satisfaction directly affects repeat visit frequency. Long wait times create a negative review feedback loop, driving customers to competitors.
-* **Recommendation**: Use BarberFlow's **Virtual Queue check-in** to set customer expectations. When wait times are predicted to exceed 20 minutes, send SMS alerts advising the client to delay arrival.
+## Insight 3: Long waits come with lower ratings
+* **Evidence:** each review is matched to the reviewer's visit (query #16, one visit per review). The average rating is **4.44★ after no wait** and **3.47★ after waits over 25 minutes**, a 22% drop. The wait-experience sub-rating falls from 4.75 to 2.0.
+* **Caveat:** the simulator uses the wait as an input to the rating, so this confirms the pipeline recovers a built-in effect. It does not prove causation in real data.
 
----
+## Insight 4: Demand outgrows capacity unevenly across neighborhoods
+* **Evidence:** visits per seat (pre-aggregated, no join fan-out) against a market average of 257.9:
 
-## Insight 3: Spatial Mismatch of Demand vs. Capacity
-* **Finding**: Specific neighborhoods are over-supplied with barber chairs while others suffer from a severe shortage.
-* **Evidence**:
-  * **Downtown Area**: Has 12 shops, 65 seats, and a high **Visits-to-Seat ratio of 210.5**, resulting in an average wait time of **24.5 minutes** (under-served market).
-  * **Suburbs Area**: Has 10 shops, 54 seats, but a low **Visits-to-Seat ratio of 85.2**, resulting in average wait times of **5.2 minutes** and low shop utilization (over-saturated market).
-* **Business Impact**: Franchise owners opening new branches in the Suburbs face sluggish sales, while Downtown shops are leaving money on the table.
-* **Recommendation**: Direct expansion and marketing capital toward **Downtown** and **Westside** locations. Consider relocation or capacity reductions (fewer scheduled barbers) in the **Suburbs**.
+  | Area | Shops | Seats | Visits/seat | Avg wait | Status |
+  |---|---:|---:|---:|---:|---|
+  | Eastside | 12 | 45 | 357.7 | 26.3 min | High opportunity |
+  | Suburbs | 7 | 29 | 319.7 | 33.3 min | High opportunity |
+  | Downtown | 9 | 49 | 234.6 | 16.8 min | Balanced |
+  | Westside | 10 | 55 | 226.3 | 16.4 min | Balanced |
+  | Northside | 12 | 74 | 211.9 | 6.9 min | Over-saturated |
+* **Recommendation:** Eastside and Suburbs are the strongest expansion candidates: high demand per seat and the longest waits.
 
----
-
-## Insight 4: Revenue Contribution by Service Segment
-* **Finding**: High-margin services are under-promoted.
-* **Evidence**:
-  * **"Haircut"** accounts for **55%** of visits but only **38%** of total revenue.
-  * **"Haircut + Beard"** accounts for **20%** of visits but generates **34%** of total revenue due to its premium pricing.
-  * **"Premium Haircut"** has the highest ticket size ($50-$80) but represents only **5%** of transactions.
-* **Business Impact**: Barbers spend excessive time on low-margin services, capping the shop's earning potential per hour.
-* **Recommendation**: Adjust the BarberFlow customer booking page to suggest **combos and add-ons** (like beard trimming or washes) during check-in, increasing the average ticket size by an estimated 18%.
+## Insight 5: Revenue is driven by price, not by volume
+* **Evidence:** each service is chosen about equally often (≈ 9.5–9.9k visits each; Premium Haircut 7,005 because Budget shops don't offer it). *Haircut + Beard* (24.5%) and *Premium Haircut* (24.4%) still generate half of the revenue, because of their price (query #9).
+* **Recommendation:** bundle add-ons with high-ticket services to lift the average ticket (currently $28.14).

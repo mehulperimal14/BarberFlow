@@ -39,14 +39,14 @@ This guide prepares candidates to defend the **BarberFlow** portfolio project in
 
 ### 9. What evaluation metrics did you use for the demand model, and what do they mean?
 * **Answer**: I used Mean Absolute Error (MAE), Root Mean Squared Error (RMSE), and $R^2$:
-  * **MAE** (0.45 customers): On average, the model's prediction is off by less than half a customer per hour.
-  * **$R^2$** (0.81): The model explains 81% of the variance in hourly customer demand.
+  * **MAE 0.76 customers/hour, $R^2$ 0.50** on the last 20% of dates (see `backend/app/ml_models/model_card.json`).
+  * Honest reading: a linear model and the historical shop/hour/weekday average perform the same, so the "model" mostly reproduces that average. The waiting-time model is the strong one (R² 0.84, MAE 8.5 min).
 
 ### 10. How did you prevent "data leakage" in your ML pipeline?
-* **Answer**: In `03_demand_prediction.ipynb`, I avoided random train-test splitting. Instead, I used a **time-based split**: the first 75 days of history were used for training, and the last 15 days for testing. This ensures the model does not train on "future" data to predict "past" events.
+* **Answer**: In `scripts/train_models.py` I use a **time-based split**: the first 80% of the 91 dates (72 days) train and the last 19 days test. The historical-average feature is computed **from training dates only**. The original notebook averaged over all dates, which leaked test targets; fixing that lowered R² from 0.54 to about 0.50. I selected the model on a separate validation window, not on the test set.
 
 ### 11. What are the most important features in predicting waiting time?
-* **Answer**: According to the feature importances plot, **queue length** is the most critical feature, followed by **number of barbers** and **occupied seats**. This aligns with queuing theory, where queue length represents backlog and barbers represent processing speed.
+* **Answer**: According to the model card's feature importances, **queue length** dominates (0.91), followed by **number of barbers** and **hour**. This aligns with queuing theory, where queue length represents backlog and barbers represent processing speed.
 
 ### 12. Why did you use Logistic Regression for the no-show model?
 * **Answer**: No-show prediction is a binary classification problem (will show vs. won't show). Logistic Regression is highly explainable, providing a direct probability score that can be translated into "Low," "Medium," or "High" risk tiers.
@@ -55,7 +55,7 @@ This guide prepares candidates to defend the **BarberFlow** portfolio project in
 * **Answer**: By identifying high-risk appointments, shops can send automated SMS reminders, require pre-payment deposits, or double-book slots during peak hours to protect revenue.
 
 ### 14. What does "booking lag" mean in your no-show model?
-* **Answer**: Booking lag is the time delay (in days) between when the appointment is booked and when it occurs. The model showed that appointments booked 7+ days in advance have a much higher no-show probability than those booked 1-2 days ahead.
+* **Answer**: Booking lag is the time delay (in days) between when the appointment is booked and when it occurs. In this simulated data it has **no** effect: lags are 1–7 days for every status, and no-shows are assigned at random. The model's only signal is the appointment hour (a simulation artefact), so it is labelled experimental.
 
 ### 15. How does your weighted recommendation system work?
 * **Answer**: It calculates a configurable score based on rating, wait time, distance, and price. Features are normalized to a 0-1 scale so they can be combined. The UI explains the score using badges like "⭐ Highly Rated" or "🟢 Short Wait" to make recommendations transparent.
@@ -64,7 +64,7 @@ This guide prepares candidates to defend the **BarberFlow** portfolio project in
 * **Answer**: The Customer App is designed for simplicity (search, filter, book, view wait times). The Barber Panel is information-dense, focusing on active queue management, check-in controls, and business KPIs.
 
 ### 17. How did you simulate "real-time" availability?
-* **Answer**: Since there are no physical sensors, we simulate check-ins and check-outs in the database. When a customer joins the queue via the UI, a record is added to the database, and the shop's active wait time and occupied seats are updated in the availability logs.
+* **Answer**: Since there are no physical sensors, we simulate check-ins and check-outs in the database. When a customer joins via the UI, a row is written to a **live store** (PostgreSQL in production, SQLite locally) with a persisted status (Waiting → In Service → Completed/Skipped). The barber panel polls it every 10 s, and the shop list's wait estimate comes from the ML model applied to the live queue counts.
 
 ### 18. What is the "Visits-per-Seat" ratio, and why is it useful?
 * **Answer**: It is the total visits in an area divided by the total barber seats in that area. It represents spatial capacity utilization. Areas with high ratios are under-served (high demand, low capacity), presenting business expansion opportunities.
