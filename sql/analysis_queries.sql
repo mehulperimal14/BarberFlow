@@ -1,4 +1,5 @@
 -- BarberFlow analytical queries demonstrating SQL skills (CTEs, Window functions, Aggregations, Joins)
+-- All 20 queries run on the SQLite database built by scripts/seed_db.py (verified by tests/test_sql_queries.py).
 
 -- 1. Top-Rated Barber Shops
 -- Business Value: Identifies premier shops to featured in recommendations.
@@ -146,7 +147,7 @@ ORDER BY average_utilization_pct DESC;
 -- 11. Bottleneck Shops: High Demand but Low Capacity
 -- Business Value: Identifies shops that are losing business because they don't have enough barbers/seats.
 WITH ShopVisits AS (
-    SELECT shop_id, COUNT(*) AS visits_count
+    SELECT shop_id, COUNT(*) AS visits_count, AVG(waiting_time_minutes) AS avg_wait
     FROM visits
     GROUP BY shop_id
 )
@@ -156,14 +157,12 @@ SELECT
     s.number_of_seats,
     s.number_of_barbers,
     sv.visits_count,
-    ROUND(AVG(v.waiting_time_minutes), 1) AS avg_wait_time
+    ROUND(sv.avg_wait, 1) AS avg_wait_time
 FROM shops s
 JOIN ShopVisits sv ON s.shop_id = sv.shop_id
-JOIN visits v ON s.shop_id = v.shop_id
 WHERE s.number_of_seats <= 3 AND sv.visits_count > (
     SELECT AVG(visits_count) FROM ShopVisits
 )
-GROUP BY s.shop_id, s.shop_name, s.number_of_seats, s.number_of_barbers, sv.visits_count
 ORDER BY sv.visits_count DESC;
 
 
@@ -234,6 +233,15 @@ ORDER BY no_show_rate_pct DESC;
 
 -- 16. Customer Rating vs. Waiting Time Analysis
 -- Business Value: Validates the hypothesis that longer waiting times hurt ratings.
+-- Reviews have no visit_id, so each review is matched to the reviewer's visit at the same shop on the
+-- review date or the day before, keeping exactly ONE visit per review (avoids join fan-out).
+WITH matched AS (
+    SELECT r.review_id, r.rating, r.waiting_time_rating, v.waiting_time_minutes,
+           ROW_NUMBER() OVER (PARTITION BY r.review_id ORDER BY v.date DESC, v.visit_id DESC) AS rn
+    FROM reviews r
+    JOIN visits v ON v.customer_id = r.customer_id AND v.shop_id = r.shop_id
+                 AND v.date BETWEEN DATE(r.review_date, '-1 day') AND r.review_date
+)
 SELECT 
     CASE 
         WHEN waiting_time_minutes = 0 THEN '0 min (No Wait)'
@@ -244,8 +252,8 @@ SELECT
     COUNT(*) AS total_reviews,
     ROUND(AVG(rating), 2) AS avg_customer_rating,
     ROUND(AVG(waiting_time_rating), 2) AS avg_wait_experience_rating
-FROM reviews r
-JOIN visits v ON r.customer_id = v.customer_id AND r.shop_id = v.shop_id
+FROM matched
+WHERE rn = 1
 GROUP BY wait_time_tier
 ORDER BY avg_customer_rating DESC;
 
@@ -305,7 +313,7 @@ JOIN services srv ON v.service_id = srv.service_id
 GROUP BY s.shop_id, s.shop_name, s.rating
 HAVING total_revenue > (
     SELECT AVG(revenue) FROM (
-        SELECT SUM(price) as revenue FROM visits v2 JOIN services s2 ON v2.service_id = s2.service_id GROUP BY shop_id
+        SELECT SUM(s2.price) AS revenue FROM visits v2 JOIN services s2 ON v2.service_id = s2.service_id GROUP BY v2.shop_id
     )
 ) AND s.rating < 4.0
 ORDER BY total_revenue DESC;

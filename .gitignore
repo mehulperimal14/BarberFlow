@@ -26,3 +26,11 @@ frontend/dist/
 # Operating System files
 .DS_Store
 Thumbs.db
+
+# Locally generated databases (rebuilt from data/processed by the API or scripts/seed_db.py)
+backend/app/live.db
+*.building
+*.db-journal
+
+# Vercel CLI state
+.vercel
