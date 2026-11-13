@@ -1,7 +1,9 @@
 # BarberFlow 💈
 ### Barber-shop discovery, live virtual queue, SQL analytics & ML on a simulated market
 
-**Live app:** _deployment URL added after the first production deploy_ · **API docs:** `/api/docs` · **Health:** `/health`
+**Live app:** https://barberflow-nu-one.vercel.app · **API docs:** https://barberflow-nu-one.vercel.app/api/docs · **Health:** https://barberflow-nu-one.vercel.app/health
+
+> The public deployment is a **read-only demo**. Discovery, recommendations, all analytics, ML predictions and the data explorer work. Joining the queue and booking are disabled (the UI says so), because no persistent database is attached. [Run it locally](#run-locally) for the full live queue, or add Postgres ([Deploy](#deploy-vercel), step 2) to enable it online.
 
 BarberFlow connects three users through one data platform:
 
@@ -12,6 +14,14 @@ BarberFlow connects three users through one data platform:
 > **Data honesty.** The 91-day history (50 shops, 5,000 customers, 64,991 visits, 2026-06-01 → 2026-08-30) is **simulated** by a discrete-event queue model in `scripts/generate_data.py`. Analytics describe that simulated market. The live queue and bookings you create in the app are real database writes.
 
 ---
+
+## Screenshots
+
+| Customer App | Analyst: market overview |
+|---|---|
+| ![Customer App](docs/screenshots/customer-app.jpg) | ![Market overview](docs/screenshots/analyst-overview.jpg) |
+| **Analyst: shop performance matrix** | **ML predictions with measured metrics** |
+| ![Shop performance](docs/screenshots/shop-performance.jpg) | ![ML predictions](docs/screenshots/ml-predictions.jpg) |
 
 ## Features
 
@@ -34,7 +44,7 @@ flowchart LR
     F --> M[JSON models + model_card.json]
 ```
 
-* **Why two stores?** The simulated history is the analytical source of truth and must not change. Vercel's filesystem is read-only, so the 18 MB SQLite DB is rebuilt from the committed CSVs in about 0.8 s on a cold start and opened read-only. Writes (queue entries, bookings, rate-limit events) go to PostgreSQL (e.g. Neon). Without `DATABASE_URL`, the app runs as a **read-only demo**: the live features return HTTP 503 and the UI says so. It never writes to a temporary filesystem.
+* **Why two stores?** The simulated history is the analytical source of truth and must not change. Vercel's filesystem is read-only, so the 18 MB SQLite DB is rebuilt from the committed CSVs on a cold start (about 0.8 s locally, 1.7 s measured on Vercel) and opened read-only. Writes (queue entries, bookings, rate-limit events) go to PostgreSQL (e.g. Neon). Without `DATABASE_URL`, the app runs as a **read-only demo**: the live features return HTTP 503 and the UI says so. It never writes to a temporary filesystem.
 * **Locally**, the live store is a SQLite file (`backend/app/live.db`), so everything works with no setup.
 * **Models** are trained with scikit-learn and exported to JSON (trees and coefficients). They are served in pure Python: no pickle, a small serverless bundle, and verified against scikit-learn to within 1e-7.
 
@@ -137,7 +147,8 @@ powerbi/                 Star-schema CSV exports + analytics_summary.csv
 ## Known limitations
 
 * **Simulated data:** insights show the method, not real customer behaviour. Customers are picked at random, so the repeat-client rate is about 1%.
-* **No authentication:** anyone can use the demo queue. Writes are rate-limited per client, capped per shop, validated, and isolated from the historical data.
+* **Public demo is read-only:** the live queue and bookings need `DATABASE_URL`. Locally they use SQLite automatically.
+* **No authentication:** when the live store is enabled, anyone can use the demo queue. Writes are rate-limited per client, capped per shop, validated, and isolated from the historical data.
 * **Near-real-time only:** the barber panel polls every 10 s. Serverless functions don't hold WebSockets.
 * **Location analysis** is area-level only (no maps, population or competitor data). Revenue is list price × visits (no payment data).
 * **No-show model** is experimental (see the model table above). The demand model is a baseline.
